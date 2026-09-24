@@ -117,3 +117,21 @@ Please provide:
 - A `Dockerfile` and `docker-compose.yml`.
 - Instructions for setup, database seeding, and running locally.
 - Instructions for running with Docker Compose.
+
+## Run locally
+
+From the repository root:
+
+```sh
+corepack enable
+yarn install --immutable
+```
+
+In two terminals:
+
+```sh
+yarn dev:client
+yarn dev:server
+```
+
+Open http://localhost:5173.
