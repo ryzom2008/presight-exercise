@@ -30,3 +30,7 @@ yarn-error.log*
 
 .parcel-cache
 .idea/
+
+# Local SQLite databases and journal files
+*.sqlite
+*.sqlite-*
