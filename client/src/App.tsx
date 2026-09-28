@@ -16,7 +16,7 @@ import { useDirectory } from './directory/api';
 import { Filters } from './directory/Filters';
 import { DirectoryControls } from './directory/DirectoryControls';
 import { DirectoryResults } from './directory/DirectoryResults';
-import { fold } from './directory/state';
+import { fold, stateParams } from './directory/state';
 import { useDirectoryState } from './directory/useDirectoryState';
 import './directory/styles.css';
 
@@ -128,6 +128,7 @@ export const App = () => {
               </Group>
               {selectedCount > 0 && selectedFilters}
               <DirectoryResults
+                key={stateParams(state).toString()}
                 query={query}
                 active={active}
                 onClear={() => update({ q: '', hobbies: [], nationalities: [] })}
