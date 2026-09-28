@@ -5,15 +5,19 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "db:seed": "node --import tsx src/db/seed-cli.ts",
+    "test": "node --import tsx --test test/*.test.ts",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "better-sqlite3": "^13.0.3",
     "express": "~5.1.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/express": "~5.0.1"
   }
 }

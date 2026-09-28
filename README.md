@@ -125,6 +125,7 @@ From the repository root:
 ```sh
 corepack enable
 yarn install --immutable
+yarn db:seed
 ```
 
 In two terminals:
@@ -135,3 +136,8 @@ yarn dev:server
 ```
 
 Open http://localhost:5173.
+
+```sh
+# Replace the directory (deletes existing directory data).
+yarn db:seed --reset --count 2000 --seed 42
+```

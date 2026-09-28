@@ -12,6 +12,8 @@
     "server"
   ],
   "scripts": {
+    "db:seed": "yarn workspace presight-server db:seed",
+    "test": "yarn workspace presight-server test",
     "dev:client": "yarn workspace presight-client dev",
     "dev:server": "yarn workspace presight-server dev",
     "build": "yarn workspace presight-client build && yarn workspace presight-server build",
