@@ -1,4 +1,4 @@
-import { app } from './app.js';
+import { createApp } from './app.js';
 import { openDatabase } from './db/connection.js';
 
 const port = Number(process.env.PORT ?? 3001);
@@ -7,6 +7,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
 }
 
 const db = openDatabase();
+const app = createApp(db);
 const server = app.listen(port, () => {
   console.log(`API listening on http://localhost:${port}`);
 });

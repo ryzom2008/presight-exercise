@@ -14,10 +14,13 @@
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
-    "express": "~5.1.0"
+    "express": "~5.1.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
-    "@types/express": "~5.0.1"
+    "@types/express": "~5.0.1",
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.3.0"
   }
 }
