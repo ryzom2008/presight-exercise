@@ -18,11 +18,13 @@
     "dev:server": "yarn workspace presight-server dev",
     "build": "yarn workspace presight-client build && yarn workspace presight-server build",
     "typecheck": "yarn workspace presight-client typecheck && yarn workspace presight-server typecheck",
-    "start": "yarn workspace presight-server start"
+    "start": "yarn workspace presight-server start",
+    "format": "prettier --write ."
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "prettier": "^3.9.9",
     "tsx": "^4.20.0",
     "typescript": "~5.9.3",
     "vite": "^7.0.0"
