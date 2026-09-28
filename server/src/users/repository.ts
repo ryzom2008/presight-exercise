@@ -1,3 +1,4 @@
+import type { DirectoryResponse, DirectoryPagination, FilterOption } from '@presight/shared';
 import type Database from 'better-sqlite3';
 import type { UserQuery } from './query.js';
 
@@ -9,11 +10,6 @@ interface UserRow {
   age: number;
   nationality: string;
 }
-interface FilterOption {
-  value: string;
-  count: number;
-}
-
 interface UserFilter {
   where: string;
   params: (string | number)[];
@@ -133,7 +129,11 @@ const getHobbiesByUser = (db: Database.Database, userIds: number[]): Map<number,
   return byUser;
 };
 
-const buildPagination = (query: UserQuery, total: number, pageLength: number) => {
+const buildPagination = (
+  query: UserQuery,
+  total: number,
+  pageLength: number,
+): DirectoryPagination => {
   const nextOffset = query.offset + pageLength;
   const hasMore = nextOffset < total;
   return {
@@ -145,7 +145,7 @@ const buildPagination = (query: UserQuery, total: number, pageLength: number) =>
   };
 };
 
-export const findUsers = (db: Database.Database, query: UserQuery) =>
+export const findUsers = (db: Database.Database, query: UserQuery): DirectoryResponse =>
   db.transaction(() => {
     const filter = buildUserFilter(query);
     const total = countUsers(db, filter);

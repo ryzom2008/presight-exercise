@@ -9,15 +9,16 @@
   },
   "workspaces": [
     "client",
-    "server"
+    "server",
+    "shared"
   ],
   "scripts": {
     "db:seed": "yarn workspace presight-server db:seed",
-    "test": "yarn workspace presight-server test",
+    "test": "yarn workspace presight-server test && yarn workspace presight-client test",
     "dev:client": "yarn workspace presight-client dev",
     "dev:server": "yarn workspace presight-server dev",
     "build": "yarn workspace presight-client build && yarn workspace presight-server build",
-    "typecheck": "yarn workspace presight-client typecheck && yarn workspace presight-server typecheck",
+    "typecheck": "yarn workspace @presight/shared typecheck && yarn workspace presight-client typecheck && yarn workspace presight-server typecheck",
     "start": "yarn workspace presight-server start",
     "format": "prettier --write ."
   },
