@@ -1,6 +1,6 @@
 import { Alert, Button, Paper, Skeleton, Stack, Text, Title } from '@mantine/core';
 import { useDirectory } from './api';
-import { UserCard } from './UserCard';
+import { VirtualUserList } from './VirtualUserList';
 
 export const DirectoryResults = ({
   query,
@@ -15,23 +15,15 @@ export const DirectoryResults = ({
   const users = query.data?.pages.flatMap((page) => page.users) ?? [];
   return (
     <>
-      {query.isError && (
-        <Alert
-          color="red"
-          title={
-            query.isFetchNextPageError ? 'Could not load more people' : 'Unable to load directory'
-          }
-          role="alert"
-        >
+      {query.isError && !query.isFetchNextPageError && (
+        <Alert color="red" title="Unable to load directory" role="alert">
           <Text size="sm">{query.error.message}</Text>
           <Button
             mt="sm"
             size="xs"
             color="red"
             variant="light"
-            onClick={() =>
-              query.isFetchNextPageError ? void query.fetchNextPage() : void query.refetch()
-            }
+            onClick={() => void query.refetch()}
           >
             Try again
           </Button>
@@ -56,26 +48,39 @@ export const DirectoryResults = ({
           )}
         </Paper>
       ) : (
-        <Stack gap="sm" className="mobile-card-list-gap" aria-label="People">
-          {users.map((user) => (
-            <UserCard key={user.id} user={user} />
-          ))}
-        </Stack>
+        users.length > 0 && (
+          <VirtualUserList
+            users={users}
+            total={firstPage?.pagination.total ?? 0}
+            hasMore={query.hasNextPage}
+            fetching={query.isFetching}
+            failed={query.isError}
+            onLoadMore={() => void query.fetchNextPage({ cancelRefetch: false })}
+          />
+        )
       )}
-      {query.hasNextPage && !query.isFetchNextPageError && (
-        <Button
-          variant="light"
-          loading={query.isFetchingNextPage}
-          disabled={query.isFetching}
-          onClick={() => void query.fetchNextPage()}
-        >
-          Load more people
-        </Button>
+      {query.isFetchNextPageError && (
+        <Alert color="red" title="Could not load more people" role="alert">
+          <Text size="sm">Your loaded results are still available.</Text>
+          <Button
+            mt="sm"
+            variant="light"
+            color="red"
+            onClick={() => void query.fetchNextPage({ cancelRefetch: false })}
+          >
+            Try again
+          </Button>
+        </Alert>
+      )}
+      {query.isFetchingNextPage && (
+        <Text role="status" size="sm" c="dimmed" ta="center">
+          Loading more people…
+        </Text>
       )}
       {users.length > 0 && (
         <Text size="sm" c="dimmed" ta="center">
           Showing {users.length.toLocaleString()} of {firstPage?.pagination.total.toLocaleString()}{' '}
-          people
+          people{!query.hasNextPage ? ' · End of results' : ''}
         </Text>
       )}
     </>
