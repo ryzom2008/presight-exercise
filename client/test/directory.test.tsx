@@ -3,10 +3,16 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MantineProvider } from '@mantine/core';
 import { describe, expect, it, vi } from 'vitest';
-import { App } from '../src/App';
-import { readState, stateParams } from '../src/directory/state';
-import { theme } from '../src/theme';
-import type { DirectoryResponse } from '@presight/shared';
+import { App } from '../src/app/App';
+import { readState, stateParams } from '../src/features/directory/state';
+import { theme } from '../src/app/theme';
+import type {
+  DirectoryResponse,
+  DirectorySearchRequest,
+  FilterOptionsResponse,
+} from '@presight/shared';
+
+const requestBody = (init?: RequestInit): DirectorySearchRequest => JSON.parse(String(init?.body));
 
 const response = (name = 'Alex'): DirectoryResponse => ({
   users: [
@@ -21,16 +27,30 @@ const response = (name = 'Alex'): DirectoryResponse => ({
     },
   ],
   pagination: { total: 1, limit: 20, offset: 0, hasMore: false, nextOffset: null },
-  filterOptions: {
-    hobbies: [{ value: 'Reading', count: 1 }],
-    nationalities: [{ value: 'French', count: 1 }],
-  },
 });
-const json = (body: DirectoryResponse) =>
+const json = (body: DirectoryResponse | FilterOptionsResponse) =>
   new Response(JSON.stringify(body), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
+const filterOptions: FilterOptionsResponse = {
+  hobbies: [{ value: 'Reading', count: 1 }],
+  nationalities: [{ value: 'French', count: 1 }],
+};
+
+// Existing list tests control search requests independently of sidebar requests.
+const mockSearch = () => {
+  const search = vi.fn<typeof fetch>();
+  vi.spyOn(globalThis, 'fetch').mockImplementation((url, init) => {
+    if (url === '/api/users/filter-options') {
+      const selected = requestBody(init).hobbies?.length;
+      return Promise.resolve(json(selected ? { hobbies: [], nationalities: [] } : filterOptions));
+    }
+    return search(url, init);
+  });
+  return search;
+};
+
 const mount = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   return render(
@@ -43,13 +63,18 @@ const mount = () => {
 };
 
 describe('URL state', () => {
-  it('round-trips repeated filters and special characters; normalizes malformed URLs', () => {
+  it('round-trips name characters and strips digits and symbols from search', () => {
     const state = readState(
-      '?q=Ana%20%26%20Alex&hobby=Reading&hobby=SWIMMING&nationality=French&sort=age&direction=desc',
+      "?q=Jean-Luc%20O'Neil&hobby=Reading&hobby=SWIMMING&nationality=French&sort=age&direction=desc",
     );
+    expect(state.q).toBe("Jean-Luc O'Neil");
     expect(readState(stateParams(state).toString())).toEqual(state);
-    expect(readState('?sort=invalid&direction=oops&hobby=&hobby=Reading&hobby=reading')).toEqual({
-      q: '',
+    expect(
+      readState(
+        '?q=Ana123%20%26%20Alex!&sort=invalid&direction=oops&hobby=&hobby=Reading&hobby=reading',
+      ),
+    ).toEqual({
+      q: 'Ana  Alex',
       hobbies: ['reading'],
       nationalities: [],
       sort: 'first_name',
@@ -64,7 +89,7 @@ it('restores shared state and renders cards with only two hobby labels and remai
     '',
     '/?q=Alex&hobby=Reading&nationality=French&sort=age&direction=desc',
   );
-  const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(response()));
+  const fetchMock = mockSearch().mockResolvedValue(json(response()));
   mount();
   const card = await screen.findByRole('article', { name: 'Alex Smith' });
   expect(within(card).getByText('Reading')).toBeTruthy();
@@ -72,22 +97,24 @@ it('restores shared state and renders cards with only two hobby labels and remai
   expect(within(card).queryByText('Chess')).toBeNull();
   expect(within(card).getByLabelText('2 more hobbies')).toBeTruthy();
   expect((screen.getByLabelText('Search people') as HTMLInputElement).value).toBe('Alex');
-  const params = new URL(String(fetchMock.mock.calls[0]![0]), 'http://localhost').searchParams;
-  expect(params.get('hobby')).toBe('reading');
-  expect(params.get('sort')).toBe('age');
-  expect(params.get('direction')).toBe('desc');
+  expect(fetchMock.mock.calls[0]![0]).toBe('/api/users/search');
+  expect(fetchMock.mock.calls[0]![1]?.method).toBe('POST');
+  expect(fetchMock.mock.calls[0]![1]?.headers).toEqual({ 'Content-Type': 'application/json' });
+  const params = requestBody(fetchMock.mock.calls[0]![1]);
+  expect(params.hobbies).toEqual(['reading']);
+  expect(params.sort).toBe('age');
+  expect(params.direction).toBe('desc');
 });
 
 it('refreshes results and options on filter/search changes; keeps absent selections removable', async () => {
-  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
-    const selected = new URL(String(url), 'http://localhost').searchParams.has('hobby');
+  const fetchMock = mockSearch().mockImplementation(async (_url, init) => {
+    const selected = Boolean(requestBody(init).hobbies?.length);
     return json(
       selected
         ? {
             ...response(),
             users: [],
             pagination: { ...response().pagination, total: 0 },
-            filterOptions: { hobbies: [], nationalities: [] },
           }
         : response(),
     );
@@ -99,18 +126,36 @@ it('refreshes results and options on filter/search changes; keeps absent selecti
   expect(new URLSearchParams(window.location.search).get('hobby')).toBe('reading');
   await userEvent.click(screen.getByRole('button', { name: 'Remove hobby reading' }));
   await screen.findByRole('article');
-  await userEvent.type(screen.getByLabelText('Search people'), 'Ana & Alex');
+  await userEvent.type(screen.getByLabelText('Search people'), "Jean-Luc O'Neil");
   await waitFor(() =>
-    expect(
-      new URL(String(fetchMock.mock.calls.at(-1)![0]), 'http://localhost').searchParams.get('q'),
-    ).toBe('Ana & Alex'),
+    expect(requestBody(fetchMock.mock.calls.at(-1)![1]).q).toBe("Jean-Luc O'Neil"),
   );
-  expect(new URLSearchParams(window.location.search).get('q')).toBe('Ana & Alex');
+  expect(new URLSearchParams(window.location.search).get('q')).toBe("Jean-Luc O'Neil");
+});
+
+it('rejects numbers and symbols in the name search and keeps name punctuation', async () => {
+  mockSearch().mockImplementation(async () => json(response()));
+  mount();
+  await screen.findByRole('article');
+  const search = screen.getByLabelText('Search people');
+  await userEvent.type(search, 'Ana2@');
+  expect((search as HTMLInputElement).value).toBe('Ana');
+  expect(screen.getByText('Letters, spaces, hyphens, apostrophes, and periods only.')).toBeTruthy();
+  expect(new URLSearchParams(window.location.search).get('q')).toBe('Ana');
+
+  fireEvent.change(search, { target: { value: "Mary-Jane O'Neil 123!" } });
+  expect((search as HTMLInputElement).value).toBe("Mary-Jane O'Neil ");
+  expect(screen.getByText('Letters, spaces, hyphens, apostrophes, and periods only.')).toBeTruthy();
+
+  await userEvent.clear(search);
+  await userEvent.type(search, 'José.');
+  expect((search as HTMLInputElement).value).toBe('José.');
+  expect(screen.queryByText('Letters, spaces, hyphens, apostrophes, and periods only.')).toBeNull();
 });
 
 it('loads a second page, resets pagination on sort, and handles browser navigation', async () => {
-  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
-    const offset = Number(new URL(String(url), 'http://localhost').searchParams.get('offset'));
+  const fetchMock = mockSearch().mockImplementation(async (_url, init) => {
+    const offset = requestBody(init).offset ?? 0;
     const body = response(offset ? 'Ana' : 'Alex');
     body.users[0]!.id = offset ? 2 : 1;
     body.pagination = {
@@ -128,9 +173,9 @@ it('loads a second page, resets pagination on sort, and handles browser navigati
   await userEvent.selectOptions(screen.getByLabelText('Sort by'), 'age');
   await waitFor(() =>
     expect(
-      fetchMock.mock.calls.some(([url]) => {
-        const params = new URL(String(url), 'http://localhost').searchParams;
-        return params.get('sort') === 'age' && params.get('offset') === '0';
+      fetchMock.mock.calls.some(([_url, init]) => {
+        const params = requestBody(init);
+        return params.sort === 'age' && params.offset === 0;
       }),
     ).toBe(true),
   );
@@ -145,7 +190,7 @@ it('loads a second page, resets pagination on sort, and handles browser navigati
 });
 
 it('shows request failures and allows retry', async () => {
-  vi.spyOn(globalThis, 'fetch')
+  mockSearch()
     .mockRejectedValueOnce(new Error('Offline'))
     .mockImplementation(async () => json(response()));
   mount();
@@ -157,7 +202,7 @@ it('shows request failures and allows retry', async () => {
 
 it('shows loading and ignores a stale response after the search changes', async () => {
   let finish: (value: Response) => void = () => {};
-  vi.spyOn(globalThis, 'fetch')
+  mockSearch()
     .mockImplementationOnce(
       () =>
         new Promise((resolve) => {
@@ -186,7 +231,7 @@ it('opens and closes the mobile filter drawer', async () => {
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(),
   }));
-  vi.spyOn(globalThis, 'fetch').mockImplementation(async () => json(response()));
+  mockSearch().mockImplementation(async () => json(response()));
   mount();
   await screen.findByRole('article');
   expect(screen.queryByRole('complementary')).toBeNull();
@@ -215,10 +260,6 @@ const pageResponse = (offset: number, total = 45, prefix = 'Person'): DirectoryR
     hasMore: offset + 20 < total,
     nextOffset: offset + 20 < total ? offset + 20 : null,
   },
-  filterOptions: {
-    hobbies: [{ value: 'Reading', count: total }],
-    nationalities: [{ value: 'French', count: total }],
-  },
 });
 
 const scrollResults = (top: number) => {
@@ -228,8 +269,8 @@ const scrollResults = (top: number) => {
 };
 
 it('virtualizes the DOM, automatically loads pages once, and stops at the final page', async () => {
-  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
-    const offset = Number(new URL(String(url), 'http://localhost').searchParams.get('offset'));
+  const fetchMock = mockSearch().mockImplementation(async (_url, init) => {
+    const offset = requestBody(init).offset ?? 0;
     return json(pageResponse(offset));
   });
   mount();
@@ -245,18 +286,16 @@ it('virtualizes the DOM, automatically loads pages once, and stops at the final 
   scrollResults(6000);
   expect(fetchMock).toHaveBeenCalledTimes(3);
   expect(screen.queryByRole('button', { name: 'Load more people' })).toBeNull();
-  const offsets = fetchMock.mock.calls.map(([url]) =>
-    new URL(String(url), 'http://localhost').searchParams.get('offset'),
-  );
-  expect(offsets).toEqual(['0', '20', '40']);
+  const offsets = fetchMock.mock.calls.map(([_url, init]) => requestBody(init).offset);
+  expect(offsets).toEqual([0, 20, 40]);
   const positions = screen.getAllByRole('listitem').map((row) => row.getAttribute('aria-posinset'));
   expect(new Set(positions).size).toBe(positions.length);
 });
 
 it('preserves loaded cards after a next-page error and retries only when requested', async () => {
   let failed = false;
-  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
-    const offset = Number(new URL(String(url), 'http://localhost').searchParams.get('offset'));
+  const fetchMock = mockSearch().mockImplementation(async (_url, init) => {
+    const offset = requestBody(init).offset ?? 0;
     if (offset === 20 && !failed) {
       failed = true;
       throw new Error('Offline');
@@ -280,10 +319,10 @@ it('preserves loaded cards after a next-page error and retries only when request
 it('resets scroll and cancels a pending next page when filters change', async () => {
   let finish: (value: Response) => void = () => {};
   let pendingSignal: AbortSignal | null | undefined;
-  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
-    const params = new URL(String(url), 'http://localhost').searchParams;
-    if (params.has('hobby')) return json(pageResponse(0, 1, 'Filtered'));
-    if (params.get('offset') === '20') {
+  const fetchMock = mockSearch().mockImplementation(async (_url, init) => {
+    const params = requestBody(init);
+    if (params.hobbies?.length) return json(pageResponse(0, 1, 'Filtered'));
+    if (params.offset === 20) {
       pendingSignal = init?.signal;
       return new Promise((resolve) => {
         finish = resolve;
@@ -305,4 +344,105 @@ it('resets scroll and cancels a pending next page when filters change', async ()
     finish(json(pageResponse(20)));
   });
   expect(screen.getAllByRole('article')).toHaveLength(1);
+});
+
+it('loads options independently and does not refetch them for sorting or pagination', async () => {
+  const fetchMock = vi
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation(async (url, init) =>
+      json(
+        url === '/api/users/filter-options'
+          ? filterOptions
+          : pageResponse(requestBody(init).offset ?? 0),
+      ),
+    );
+  const optionCalls = () =>
+    fetchMock.mock.calls.filter(([url]) => url === '/api/users/filter-options');
+  mount();
+  await screen.findByRole('checkbox', { name: 'Reading' });
+  await screen.findByRole('article', { name: 'Person 1 Smith' });
+  expect(optionCalls()).toHaveLength(1);
+  expect(requestBody(optionCalls()[0]![1])).toEqual({ q: '', hobbies: [], nationalities: [] });
+  scrollResults(2200);
+  await screen.findByText('Showing 40 of 45 people');
+  await userEvent.selectOptions(screen.getByLabelText('Sort by'), 'age');
+  await screen.findByText('Showing 20 of 45 people');
+  expect(optionCalls()).toHaveLength(1);
+  await userEvent.click(screen.getByRole('checkbox', { name: 'Reading' }));
+  await waitFor(() => expect(optionCalls()).toHaveLength(2));
+  expect(requestBody(optionCalls()[1]![1]).hobbies).toEqual(['reading']);
+  await userEvent.type(screen.getByLabelText('Search people'), 'Ana');
+  await waitFor(() => expect(requestBody(optionCalls().at(-1)![1]).q).toBe('Ana'));
+});
+
+it('retries filter options independently while keeping loaded cards visible', async () => {
+  let failed = false;
+  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+    if (url === '/api/users/filter-options') {
+      if (!failed) {
+        failed = true;
+        throw new Error('Offline');
+      }
+      return json(filterOptions);
+    }
+    return json(response());
+  });
+  mount();
+  await screen.findByRole('article');
+  await screen.findByText('Unable to load filter options');
+  await userEvent.click(screen.getByRole('button', { name: 'Retry filters' }));
+  await screen.findByRole('checkbox', { name: 'Reading' });
+  expect(fetchMock.mock.calls.filter(([url]) => url === '/api/users/search')).toHaveLength(1);
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
+it('cancels stale filter options when the text changes', async () => {
+  let finish: (response: Response) => void = () => {};
+  let pendingSignal: AbortSignal | null | undefined;
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+    if (url === '/api/users/search') return json(response());
+    if (!requestBody(init).q) {
+      pendingSignal = init?.signal;
+      return new Promise((resolve) => {
+        finish = resolve;
+      });
+    }
+    return json({ hobbies: [{ value: 'Chess', count: 1 }], nationalities: [] });
+  });
+  mount();
+  expect(screen.getByLabelText('Loading hobbies')).toBeTruthy();
+  await userEvent.type(screen.getByLabelText('Search people'), 'Ana');
+  await screen.findByRole('checkbox', { name: 'Chess' });
+  expect(pendingSignal?.aborted).toBe(true);
+  await act(async () => {
+    finish(json(filterOptions));
+  });
+  expect(screen.queryByRole('checkbox', { name: 'Reading' })).toBeNull();
+});
+
+it('updates the URL immediately and debounces search requests while typing', async () => {
+  const fetchMock = vi
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation(async (url) =>
+      json(url === '/api/users/filter-options' ? filterOptions : response()),
+    );
+  mount();
+  await screen.findByRole('article');
+  await screen.findByRole('checkbox', { name: 'Reading' });
+
+  await userEvent.type(screen.getByLabelText('Search people'), 'Ana');
+  expect(new URLSearchParams(window.location.search).get('q')).toBe('Ana');
+  expect(fetchMock.mock.calls.filter(([, init]) => Boolean(requestBody(init).q))).toHaveLength(0);
+
+  await waitFor(() =>
+    expect(fetchMock.mock.calls.filter(([, init]) => requestBody(init).q === 'Ana')).toHaveLength(
+      2,
+    ),
+  );
+  expect(
+    fetchMock.mock.calls.filter(([, init]) => {
+      const q = requestBody(init).q;
+      return q && q !== 'Ana';
+    }),
+  ).toHaveLength(0);
 });

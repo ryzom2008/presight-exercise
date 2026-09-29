@@ -21,6 +21,11 @@ export const defaults: DirectoryState = {
   direction: 'asc',
 };
 export const fold = (value: string) => value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+
+const disallowedInNameSearch = /[^\p{L}\p{M} .'’ʼ-]/gu;
+
+export const sanitizeNameSearch = (value: string) =>
+  value.replace(disallowedInNameSearch, '').slice(0, 200);
 const readValues = (params: URLSearchParams, key: string, limit: number) =>
   [
     ...new Set(
@@ -35,7 +40,7 @@ export const readState = (search: string): DirectoryState => {
   const params = new URLSearchParams(search);
   const sort = params.get('sort') as SortField;
   return {
-    q: (params.get('q') ?? '').slice(0, 200),
+    q: sanitizeNameSearch(params.get('q') ?? ''),
     nationalities: readValues(params, 'nationality', 50),
     hobbies: readValues(params, 'hobby', 10),
     sort: sortFields.includes(sort) ? sort : defaults.sort,

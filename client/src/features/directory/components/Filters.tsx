@@ -1,6 +1,6 @@
-import { Badge, Button, Checkbox, Group, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { Alert, Badge, Button, Checkbox, Group, Skeleton, Stack, Text, Title } from '@mantine/core';
 import type { FilterOption } from '@presight/shared';
-import { fold, type DirectoryState } from './state';
+import { fold, type DirectoryState } from '../state';
 
 interface Props {
   state: DirectoryState;
@@ -9,6 +9,7 @@ interface Props {
   failed: boolean;
   onToggle: (key: 'hobbies' | 'nationalities', value: string) => void;
   onClear: () => void;
+  onRetry: () => void;
 }
 
 const FilterGroup = ({
@@ -47,7 +48,7 @@ const FilterGroup = ({
       </Stack>
     ) : failed ? (
       <Text size="sm" c="dimmed">
-        Filters unavailable. Retry loading the directory.
+        Filter options unavailable.
       </Text>
     ) : !options?.length ? (
       <Text size="sm" c="dimmed">
@@ -75,7 +76,7 @@ const FilterGroup = ({
   </Stack>
 );
 
-export const Filters = ({ state, options, loading, failed, onToggle, onClear }: Props) => (
+export const Filters = ({ state, options, loading, failed, onToggle, onClear, onRetry }: Props) => (
   <Stack gap="xl">
     <Group justify="space-between">
       <Title order={2}>Refine results</Title>
@@ -88,6 +89,13 @@ export const Filters = ({ state, options, loading, failed, onToggle, onClear }: 
         Clear
       </Button>
     </Group>
+    {failed && (
+      <Alert color="red" title="Unable to load filter options" role="alert">
+        <Button variant="light" onClick={onRetry}>
+          Retry filters
+        </Button>
+      </Alert>
+    )}
     <FilterGroup
       title="Nationality"
       hint="Match any selected nationality"

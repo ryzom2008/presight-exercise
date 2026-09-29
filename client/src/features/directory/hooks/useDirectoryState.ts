@@ -1,5 +1,5 @@
 import { useMemo, useSyncExternalStore } from 'react';
-import { readState, stateParams, type DirectoryState } from './state';
+import { readState, stateParams, type DirectoryState } from '../state';
 
 const event = 'directory:navigate';
 const subscribe = (notify: () => void) => {

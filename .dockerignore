@@ -1,0 +1,10 @@
+.git
+**/node_modules
+**/dist
+.yarn
+**/*.sqlite
+**/*.sqlite-*
+**/.env*
+**/coverage
+**/.DS_Store
+1
