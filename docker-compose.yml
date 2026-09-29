@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    ports:
+      - '${APP_PORT:-3001}:3001'
+    volumes:
+      - directory-data:/app/data
+    init: true
+
+volumes:
+  directory-data:

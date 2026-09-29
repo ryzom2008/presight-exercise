@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -11,18 +11,21 @@ import {
   Text,
   Title,
 } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import { useDirectory } from './directory/api';
-import { Filters } from './directory/Filters';
-import { DirectoryControls } from './directory/DirectoryControls';
-import { DirectoryResults } from './directory/DirectoryResults';
-import { fold, stateParams } from './directory/state';
-import { useDirectoryState } from './directory/useDirectoryState';
-import './directory/styles.css';
+import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
+import { useDirectory, useFilterOptions } from '../features/directory/api';
+import { Filters } from '../features/directory/components/Filters';
+import { DirectoryControls } from '../features/directory/components/DirectoryControls';
+import { DirectoryResults } from '../features/directory/components/DirectoryResults';
+import { fold, stateParams } from '../features/directory/state';
+import { useDirectoryState } from '../features/directory/hooks/useDirectoryState';
+import '../features/directory/styles.css';
 
 export const App = () => {
   const { state, update } = useDirectoryState();
-  const query = useDirectory(state);
+  const [debouncedSearch] = useDebouncedValue(state.q, 300);
+  const requestState = useMemo(() => ({ ...state, q: debouncedSearch }), [state, debouncedSearch]);
+  const query = useDirectory(requestState);
+  const filterQuery = useFilterOptions(requestState);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const desktop = useMediaQuery('(min-width: 62em)');
   const firstPage = query.data?.pages[0];
@@ -60,9 +63,10 @@ export const App = () => {
   const filterPanel = (
     <Filters
       state={state}
-      options={firstPage?.filterOptions}
-      loading={query.isPending}
-      failed={query.isError && !firstPage}
+      options={filterQuery.data}
+      loading={filterQuery.isPending}
+      failed={filterQuery.isError}
+      onRetry={() => void filterQuery.refetch()}
       onToggle={toggle}
       onClear={clearFilters}
     />
@@ -128,7 +132,7 @@ export const App = () => {
               </Group>
               {selectedCount > 0 && selectedFilters}
               <DirectoryResults
-                key={stateParams(state).toString()}
+                key={stateParams(requestState).toString()}
                 query={query}
                 active={active}
                 onClear={() => update({ q: '', hobbies: [], nationalities: [] })}

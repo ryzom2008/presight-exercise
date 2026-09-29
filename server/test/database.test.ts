@@ -25,6 +25,10 @@ test('default seed persists 2,000 varied users and migrations preserve them on r
     assert.deepEqual(db.pragma('foreign_key_check'), []);
     assert.equal(db.pragma('integrity_check', { simple: true }), 'ok');
     assert.equal((db.prepare('SELECT DISTINCT nationality FROM users').all()).length, 32);
+    const users = original.users as { id: number; avatar: string }[];
+    assert.equal(users[0]?.avatar, 'https://api.dicebear.com/10.x/lorelei/svg?seed=1&size=96');
+    assert.equal(users.at(-1)?.avatar, 'https://api.dicebear.com/10.x/lorelei/svg?seed=2000&size=96');
+    assert.equal(new Set(users.map(({ avatar }) => avatar)).size, 2000);
     assert.equal(original.hobbies.length, 40);
     const counts = db.prepare(`SELECT DISTINCT count(h.hobby_id) AS count
       FROM users u LEFT JOIN user_hobbies h ON h.user_id = u.id

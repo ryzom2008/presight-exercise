@@ -7,13 +7,13 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
 }
 
 const db = openDatabase();
-const app = createApp(db);
+const app = createApp(db, process.env.CLIENT_DIST_PATH);
 const server = app.listen(port, () => {
-  console.log(`API listening on http://localhost:${port}`);
+  console.info(JSON.stringify({ event: 'server_started', port }));
 });
 
 server.on('error', (error) => {
-  console.error('Unable to start API:', error.message);
+  console.error(JSON.stringify({ event: 'server_error', errorType: error.name }));
   db.close();
   process.exitCode = 1;
 });

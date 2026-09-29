@@ -29,8 +29,22 @@ export interface DirectoryPagination {
 export interface DirectoryResponse {
   users: DirectoryUser[];
   pagination: DirectoryPagination;
-  filterOptions: {
-    hobbies: FilterOption[];
-    nationalities: FilterOption[];
-  };
+}
+
+export interface DirectoryFilterRequest {
+  q?: string;
+  nationalities?: string[];
+  hobbies?: string[];
+}
+
+export interface DirectorySearchRequest extends DirectoryFilterRequest {
+  sort?: SortField;
+  direction?: SortDirection;
+  offset?: number;
+  limit?: number;
+}
+
+export interface FilterOptionsResponse {
+  hobbies: FilterOption[];
+  nationalities: FilterOption[];
 }

@@ -1,5 +1,5 @@
 import { Alert, Button, Paper, Skeleton, Stack, Text, Title } from '@mantine/core';
-import { useDirectory } from './api';
+import { useDirectory } from '../api';
 import { VirtualUserList } from './VirtualUserList';
 
 export const DirectoryResults = ({
