@@ -1,15 +1,68 @@
-.site-header {
-  border-bottom: 1px solid var(--mantine-color-default-border);
+body {
+  background: #edf3f0;
 }
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  background: var(--mantine-color-brand-6);
-  color: white;
-  border-radius: 10px;
-  font-weight: 750;
+#root {
+  min-height: 100dvh;
+}
+.directory-controls,
+.filter-sidebar {
+  background: #fcfcf8;
+  border: 1px solid #a8bdb2;
+  border-radius: 0;
+  box-shadow: none;
+}
+.directory-controls .mantine-InputWrapper-label {
+  margin-bottom: 8px;
+  color: #52685e;
+  font-size: 13px;
+  font-weight: 600;
+}
+.directory-controls .mantine-Input-input {
+  min-height: 46px;
+  border-color: #cdded5;
+  background: #fcfcf8;
+  border-radius: 4px;
+}
+.directory-controls .mantine-Input-input:focus {
+  border-color: var(--mantine-color-brand-6);
+  box-shadow: 0 0 0 3px rgb(23 107 99 / 12%);
+}
+.directory-controls .mantine-Input-input[data-error] {
+  border-color: var(--mantine-color-error);
+}
+.search-control .mantine-Input-section {
+  color: var(--mantine-color-brand-6);
+}
+.directory-filters > .mantine-Group-root {
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e6eee9;
+}
+.filter-group + .filter-group {
+  padding-top: 20px;
+  border-top: 1px solid #e6eee9;
+}
+.filter-group h3 {
+  color: #52685e;
+  font-size: 13px;
+  font-weight: 650;
+  margin-bottom: 4px;
+}
+.filter-option {
+  padding: 8px;
+  border-radius: 4px;
+}
+.filter-option:hover {
+  background: #f3f7f5;
+}
+.filter-option[data-selected] {
+  background: var(--mantine-color-brand-0);
+}
+.filter-option .mantine-Checkbox-label {
+  cursor: pointer;
+}
+.filter-option .mantine-Checkbox-input:focus-visible {
+  outline: 2px solid var(--mantine-color-brand-6);
+  outline-offset: 3px;
 }
 .directory-controls {
   display: grid;
@@ -17,23 +70,69 @@
   gap: 16px;
   align-items: end;
 }
+.directory-page {
+  height: 100dvh;
+  min-height: 640px;
+}
+.directory-shell {
+  height: 100%;
+}
+.directory-shell > :not(.directory-layout) {
+  flex-shrink: 0;
+}
 .directory-layout {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 28px;
-  align-items: start;
+  align-items: stretch;
 }
 .filter-sidebar {
-  position: sticky;
-  top: 20px;
-  max-height: calc(100dvh - 40px);
+  min-height: 0;
   overflow-y: auto;
 }
 .break-text {
   overflow-wrap: anywhere;
 }
 .user-card {
-  background: white;
+  height: 100%;
+}
+.user-card-portrait {
+  width: 100%;
+  height: 210px;
+  border-radius: 0;
+  background: #dcece9;
+  color: var(--mantine-color-brand-6);
+  font-size: 64px;
+}
+.user-card-portrait img {
+  object-fit: cover;
+}
+.user-card-panel {
+  position: relative;
+  min-height: 170px;
+  padding: 20px 20px 40px;
+  isolation: isolate;
+  color: #fff;
+}
+.user-card-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--mantine-color-brand-8);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 calc(100% - 24px));
+}
+.user-card-name {
+  margin: 0 0 8px;
+  font-size: 21px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+.user-card-meta {
+  color: var(--mantine-color-brand-2);
+  font-size: 15px;
 }
 @media (max-width: 61.99em) {
   .directory-layout {
@@ -66,27 +165,101 @@
   }
 }
 
+.directory-results {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+.directory-results > :not(.directory-scroll) {
+  flex-shrink: 0;
+}
 .directory-scroll {
-  height: clamp(280px, 65dvh, 780px);
+  flex: 1;
+  min-height: 240px;
+  padding: 24px;
   overflow-y: auto;
   overflow-x: hidden;
   overflow-anchor: none;
   scrollbar-gutter: stable;
-  border-radius: var(--mantine-radius-md);
+  border-radius: 0;
 }
 .directory-scroll:focus-visible {
   outline: 2px solid var(--mantine-color-brand-6);
   outline-offset: 3px;
 }
 .virtual-user-row {
+  display: grid;
+  gap: 36px;
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
-  padding-bottom: var(--mantine-spacing-sm);
+  padding-bottom: 32px;
 }
-@media (max-width: 47.99em) {
+@media (max-width: 39.99em) {
+  .directory-scroll {
+    padding: 12px;
+  }
   .virtual-user-row {
-    padding-bottom: 8px;
+    gap: 20px;
+    padding-bottom: 24px;
+  }
+}
+
+.directory-intro {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #182d29;
+}
+.directory-heading {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+.directory-intro-copy {
+  color: #52685e;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.directory-empty {
+  border-color: #a8bdb2;
+  border-radius: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .directory-controls .mantine-Input-input {
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+  .filter-option,
+  .filter-option .mantine-Checkbox-input,
+  .filter-option .mantine-Badge-root {
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
+  }
+  .mantine-Button-root,
+  .mantine-Pill-remove {
+    transition:
+      background-color 140ms ease,
+      color 140ms ease,
+      transform 140ms ease;
+  }
+  .mantine-Button-root:active:not(:disabled):not([data-disabled]),
+  .mantine-Pill-remove:active {
+    transform: translateY(1px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mantine-Button-root:active {
+    transform: none;
+  }
+  .mantine-Skeleton-root::after {
+    animation: none;
   }
 }

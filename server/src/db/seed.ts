@@ -16,7 +16,7 @@ const randomGenerator = (seed: number) => {
 };
 
 const avatar = (id: number): string =>
-  `https://api.dicebear.com/10.x/lorelei/svg?seed=${id}&size=96`;
+  `https://i.pravatar.cc/400?u=presight-${id}`;
 
 export const seedDatabase = (db: Database.Database, options: SeedOptions = {}) => {
   const { count = 2000, seed = 42, reset = false } = options;

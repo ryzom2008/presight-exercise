@@ -34,8 +34,10 @@ yarn db:seed --reset --count 2000 --seed 42
 The default database is `server/data/directory.sqlite`. Seeding creates 2,000 users and
 preserves existing data unless `--reset` is supplied. Set `DATABASE_PATH` to use another
 database; relative paths resolve from `server/`. Use the same value for seeding and running.
-Avatar fields contain deterministic DiceBear URLs based on user IDs, so displaying avatars
-requires internet access from the browser.
+Avatar fields contain stable [Pravatar](https://www.pravatar.cc/) photo URLs based on user IDs
+(`https://i.pravatar.cc/400?u=presight-1`), so displaying avatars requires internet access
+from the browser. Existing seeded DiceBear avatars migrate automatically when the server
+opens the database; custom avatar URLs are preserved. Photos may repeat across users.
 
 Check the application with `yarn test`, `yarn typecheck`, and `yarn build`.
 

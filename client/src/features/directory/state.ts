@@ -1,4 +1,5 @@
 import type { SortField, SortFields, SortDirection } from '@presight/shared';
+import { NAME_SEARCH_MAX_LENGTH } from './constants';
 export const sortFields = [
   'first_name',
   'last_name',
@@ -22,10 +23,16 @@ export const defaults: DirectoryState = {
 };
 export const fold = (value: string) => value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
 
+const nameSearchPattern = new RegExp(`^[\\p{L}\\p{M} .'’ʼ-]{1,${NAME_SEARCH_MAX_LENGTH}}$`, 'u');
 const disallowedInNameSearch = /[^\p{L}\p{M} .'’ʼ-]/gu;
 
-export const sanitizeNameSearch = (value: string) =>
-  value.replace(disallowedInNameSearch, '').slice(0, 200);
+export const isValidNameSearch = (value: string): boolean =>
+  value === '' ||
+  (value.trim().length > 0 && !/ {2}/u.test(value) && nameSearchPattern.test(value));
+
+export const sanitizeNameSearch = (value: string): string =>
+  value.replace(disallowedInNameSearch, '').slice(0, NAME_SEARCH_MAX_LENGTH);
+
 const readValues = (params: URLSearchParams, key: string, limit: number) =>
   [
     ...new Set(

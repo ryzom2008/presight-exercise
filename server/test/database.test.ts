@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { openDatabase, resolveDatabasePath } from '../src/db/connection.js';
+import { migrate } from '../src/db/schema.js';
 import { seedDatabase } from '../src/db/seed.js';
 
 function snapshot(db: ReturnType<typeof openDatabase>) {
@@ -26,8 +27,8 @@ test('default seed persists 2,000 varied users and migrations preserve them on r
     assert.equal(db.pragma('integrity_check', { simple: true }), 'ok');
     assert.equal((db.prepare('SELECT DISTINCT nationality FROM users').all()).length, 32);
     const users = original.users as { id: number; avatar: string }[];
-    assert.equal(users[0]?.avatar, 'https://api.dicebear.com/10.x/lorelei/svg?seed=1&size=96');
-    assert.equal(users.at(-1)?.avatar, 'https://api.dicebear.com/10.x/lorelei/svg?seed=2000&size=96');
+    assert.equal(users[0]?.avatar, 'https://i.pravatar.cc/400?u=presight-1');
+    assert.equal(users.at(-1)?.avatar, 'https://i.pravatar.cc/400?u=presight-2000');
     assert.equal(new Set(users.map(({ avatar }) => avatar)).size, 2000);
     assert.equal(original.hobbies.length, 40);
     const counts = db.prepare(`SELECT DISTINCT count(h.hobby_id) AS count
@@ -108,5 +109,26 @@ test('sorting and hobby lookup queries can use their indexes', () => {
     const plan = db.prepare('EXPLAIN QUERY PLAN SELECT user_id FROM user_hobbies WHERE hobby_id = 1').all();
     assert.match(JSON.stringify(plan), /user_hobbies_hobby_user/);
     assert.equal(resolveDatabasePath('data/test.sqlite'), resolveDatabasePath('data/directory.sqlite').replace('directory.sqlite', 'test.sqlite'));
+  } finally { db.close(); }
+});
+
+
+test('avatar migration replaces legacy demo URLs and preserves custom photos and user data', () => {
+  const db = openDatabase(':memory:');
+  try {
+    seedDatabase(db, { count: 2 });
+    db.prepare('UPDATE users SET avatar = ? WHERE id = 1').run('https://api.dicebear.com/10.x/lorelei/svg?seed=1&size=96');
+    db.prepare('UPDATE users SET avatar = ? WHERE id = 2').run('https://example.com/custom.jpg');
+    const before = snapshot(db);
+    db.pragma('user_version = 1');
+    migrate(db);
+    const expected = { ...before, users: before.users.map((user) => {
+      const row = user as { id: number; avatar: string };
+      return row.id === 1 ? { ...row, avatar: 'https://i.pravatar.cc/400?u=presight-1' } : row;
+    }) };
+    assert.deepEqual(snapshot(db), expected);
+    assert.equal(db.pragma('user_version', { simple: true }), 2);
+    migrate(db);
+    assert.deepEqual(snapshot(db), expected);
   } finally { db.close(); }
 });

@@ -31,7 +31,7 @@ const FilterGroup = ({
   failed: boolean;
   onToggle: (value: string) => void;
 }) => (
-  <Stack gap="sm">
+  <Stack gap="sm" className="filter-group">
     <div>
       <Title order={3} size="h5">
         {title}
@@ -58,15 +58,28 @@ const FilterGroup = ({
       options.map(({ value, count }) => {
         const checked = selected.includes(fold(value));
         return (
-          <Group key={value} justify="space-between" wrap="nowrap" gap="xs">
+          <Group
+            key={value}
+            justify="space-between"
+            wrap="nowrap"
+            gap="xs"
+            className="filter-option"
+            data-selected={checked || undefined}
+          >
             <Checkbox
+              color="brand"
               label={value}
               checked={checked}
               onChange={() => onToggle(value)}
               disabled={!checked && selected.length >= max}
               styles={{ root: { flex: 1, minWidth: 0 }, label: { overflowWrap: 'anywhere' } }}
             />
-            <Badge variant="light" color="gray" size="sm" aria-label={`${count} matching people`}>
+            <Badge
+              variant="light"
+              color={checked ? 'brand' : 'gray'}
+              size="sm"
+              aria-label={`${count} matching people`}
+            >
               {count.toLocaleString()}
             </Badge>
           </Group>
@@ -77,7 +90,7 @@ const FilterGroup = ({
 );
 
 export const Filters = ({ state, options, loading, failed, onToggle, onClear, onRetry }: Props) => (
-  <Stack gap="xl">
+  <Stack gap="xl" className="directory-filters">
     <Group justify="space-between">
       <Title order={2}>Refine results</Title>
       <Button
@@ -97,7 +110,7 @@ export const Filters = ({ state, options, loading, failed, onToggle, onClear, on
       </Alert>
     )}
     <FilterGroup
-      title="Nationality"
+      title="Top 20 nationalities"
       hint="Match any selected nationality"
       options={options?.nationalities}
       selected={state.nationalities}
@@ -107,7 +120,7 @@ export const Filters = ({ state, options, loading, failed, onToggle, onClear, on
       onToggle={(value) => onToggle('nationalities', value)}
     />
     <FilterGroup
-      title="Hobbies"
+      title="Top 20 hobbies"
       hint="Match all selected hobbies · up to 10"
       options={options?.hobbies}
       selected={state.hobbies}

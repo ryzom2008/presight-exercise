@@ -28,8 +28,7 @@ export const useDirectory = (state: DirectoryState) => {
   });
 };
 
-export const useFilterOptions = ({ q, hobbies, nationalities }: DirectoryState) => {
-  const filters = { q, hobbies, nationalities };
+export const useFilterOptions = (filters: DirectoryState) => {
   return useQuery({
     queryKey: ['filterOptions', filters],
     queryFn: async ({ signal }): Promise<FilterOptionsResponse> => {

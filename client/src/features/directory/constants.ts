@@ -1,0 +1,1 @@
+export const NAME_SEARCH_MAX_LENGTH = 200;

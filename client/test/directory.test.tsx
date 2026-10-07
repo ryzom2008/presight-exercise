@@ -133,24 +133,55 @@ it('refreshes results and options on filter/search changes; keeps absent selecti
   expect(new URLSearchParams(window.location.search).get('q')).toBe("Jean-Luc O'Neil");
 });
 
-it('rejects numbers and symbols in the name search and keeps name punctuation', async () => {
-  mockSearch().mockImplementation(async () => json(response()));
+it('keeps invalid names editable without updating the URL or requesting them', async () => {
+  const fetchMock = mockSearch().mockImplementation(async () => json(response()));
   mount();
   await screen.findByRole('article');
   const search = screen.getByLabelText('Search people');
-  await userEvent.type(search, 'Ana2@');
-  expect((search as HTMLInputElement).value).toBe('Ana');
-  expect(screen.getByText('Letters, spaces, hyphens, apostrophes, and periods only.')).toBeTruthy();
-  expect(new URLSearchParams(window.location.search).get('q')).toBe('Ana');
+  await userEvent.type(search, 'Ana');
+  await waitFor(() => expect(requestBody(fetchMock.mock.calls.at(-1)![1]).q).toBe('Ana'));
+  const previousUrl = window.location.href;
+  const previousRequests = fetchMock.mock.calls.length;
 
+  await userEvent.type(search, '2@');
+  expect((search as HTMLInputElement).value).toBe('Ana2@');
+  expect(search.getAttribute('aria-invalid')).toBe('true');
+  expect(
+    screen.getByText(
+      'Name is invalid. Use letters, single spaces, hyphens, apostrophes, and periods; spaces alone are not valid.',
+    ),
+  ).toBeTruthy();
+  expect(window.location.href).toBe(previousUrl);
   fireEvent.change(search, { target: { value: "Mary-Jane O'Neil 123!" } });
-  expect((search as HTMLInputElement).value).toBe("Mary-Jane O'Neil ");
-  expect(screen.getByText('Letters, spaces, hyphens, apostrophes, and periods only.')).toBeTruthy();
+  expect((search as HTMLInputElement).value).toBe("Mary-Jane O'Neil 123!");
+  expect(window.location.href).toBe(previousUrl);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  });
+  expect(fetchMock.mock.calls).toHaveLength(previousRequests);
 
+  for (const name of [' ', '   ', 'Ana  Smith', 'Ana   ']) {
+    fireEvent.change(search, { target: { value: name } });
+    expect((search as HTMLInputElement).value).toBe(name);
+    expect(search.getAttribute('aria-invalid')).toBe('true');
+    expect(window.location.href).toBe(previousUrl);
+  }
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  });
+  expect(fetchMock.mock.calls).toHaveLength(previousRequests);
+
+  fireEvent.change(search, { target: { value: "Mary-Jane O'Neil" } });
+  expect(new URLSearchParams(window.location.search).get('q')).toBe("Mary-Jane O'Neil");
+  expect(search.getAttribute('aria-invalid')).not.toBe('true');
   await userEvent.clear(search);
   await userEvent.type(search, 'José.');
-  expect((search as HTMLInputElement).value).toBe('José.');
-  expect(screen.queryByText('Letters, spaces, hyphens, apostrophes, and periods only.')).toBeNull();
+  expect(new URLSearchParams(window.location.search).get('q')).toBe('José.');
+  await userEvent.type(search, '1');
+  await userEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+  expect((search as HTMLInputElement).value).toBe('');
+  expect(new URLSearchParams(window.location.search).get('q')).toBeNull();
+  expect(screen.queryByText(/Name is invalid/)).toBeNull();
 });
 
 it('loads a second page, resets pagination on sort, and handles browser navigation', async () => {
@@ -277,13 +308,13 @@ it('virtualizes the DOM, automatically loads pages once, and stops at the final 
   await screen.findByRole('article', { name: 'Person 1 Smith' });
   expect(screen.getAllByRole('article').length).toBeLessThan(20);
   expect(fetchMock).toHaveBeenCalledTimes(1);
-  scrollResults(2200);
+  scrollResults(3800);
   await screen.findByText('Showing 40 of 45 people');
   expect(fetchMock).toHaveBeenCalledTimes(2);
   expect(screen.getAllByRole('article').length).toBeLessThan(20);
-  scrollResults(5400);
+  scrollResults(8600);
   await screen.findByText('Showing 45 of 45 people · End of results');
-  scrollResults(6000);
+  scrollResults(10000);
   expect(fetchMock).toHaveBeenCalledTimes(3);
   expect(screen.queryByRole('button', { name: 'Load more people' })).toBeNull();
   const offsets = fetchMock.mock.calls.map(([_url, init]) => requestBody(init).offset);
@@ -304,11 +335,11 @@ it('preserves loaded cards after a next-page error and retries only when request
   });
   mount();
   await screen.findByRole('article', { name: 'Person 1 Smith' });
-  scrollResults(2200);
+  scrollResults(3800);
   await screen.findByRole('alert');
   expect(screen.getAllByRole('article').length).toBeGreaterThan(0);
-  scrollResults(2100);
-  scrollResults(2200);
+  scrollResults(3700);
+  scrollResults(3800);
   expect(fetchMock).toHaveBeenCalledTimes(2);
   await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
   await screen.findByText('Showing 40 of 40 people · End of results');
@@ -332,9 +363,9 @@ it('resets scroll and cancels a pending next page when filters change', async ()
   });
   mount();
   await screen.findByRole('article', { name: 'Person 1 Smith' });
-  scrollResults(2200);
+  scrollResults(3800);
   await screen.findByText('Loading more people…');
-  scrollResults(2300);
+  scrollResults(3900);
   expect(fetchMock).toHaveBeenCalledTimes(2);
   await userEvent.click(screen.getByRole('checkbox', { name: 'Reading' }));
   await screen.findByRole('article', { name: 'Filtered 1 Smith' });
@@ -363,7 +394,7 @@ it('loads options independently and does not refetch them for sorting or paginat
   await screen.findByRole('article', { name: 'Person 1 Smith' });
   expect(optionCalls()).toHaveLength(1);
   expect(requestBody(optionCalls()[0]![1])).toEqual({ q: '', hobbies: [], nationalities: [] });
-  scrollResults(2200);
+  scrollResults(3800);
   await screen.findByText('Showing 40 of 45 people');
   await userEvent.selectOptions(screen.getByLabelText('Sort by'), 'age');
   await screen.findByText('Showing 20 of 45 people');
@@ -410,7 +441,7 @@ it('cancels stale filter options when the text changes', async () => {
     return json({ hobbies: [{ value: 'Chess', count: 1 }], nationalities: [] });
   });
   mount();
-  expect(screen.getByLabelText('Loading hobbies')).toBeTruthy();
+  expect(screen.getByLabelText('Loading top 20 hobbies')).toBeTruthy();
   await userEvent.type(screen.getByLabelText('Search people'), 'Ana');
   await screen.findByRole('checkbox', { name: 'Chess' });
   expect(pendingSignal?.aborted).toBe(true);

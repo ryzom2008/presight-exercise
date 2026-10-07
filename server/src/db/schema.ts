@@ -4,10 +4,10 @@ import type Database from 'better-sqlite3';
 export function migrate(db: Database.Database): void {
   db.transaction(() => {
     const version = db.pragma('user_version', { simple: true }) as number;
-    if (version > 1) throw new Error(`Unsupported database schema version: ${version}`);
-    if (version === 1) return;
+    if (version > 2) throw new Error(`Unsupported database schema version: ${version}`);
+    if (version === 2) return;
 
-    db.exec(`
+    if (version < 1) db.exec(`
       CREATE TABLE users (
         id INTEGER PRIMARY KEY,
         avatar TEXT NOT NULL CHECK (length(trim(avatar)) > 0),
@@ -44,6 +44,12 @@ export function migrate(db: Database.Database): void {
       BEGIN SELECT RAISE(ABORT, 'A user can have at most 10 hobbies'); END;
 
       PRAGMA user_version = 1;
+    `);
+    db.exec(`
+      UPDATE users
+      SET avatar = 'https://i.pravatar.cc/400?u=presight-' || id
+      WHERE avatar = 'https://api.dicebear.com/10.x/lorelei/svg?seed=' || id || '&size=96';
+      PRAGMA user_version = 2;
     `);
   }).immediate();
 }
