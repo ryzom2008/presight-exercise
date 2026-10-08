@@ -58,7 +58,7 @@ bash setup-identity.sh
 
 Review the script before running it. It creates `presight-github` in the existing
 resource group, configures federation for
-`repo:ryzom2008/presight-exercise:environment:azure-demo`, enables the VM identity,
+`repo:ryzom2008@24992981/presight-exercise@1385960439:environment:azure-demo`, enables the VM identity,
 and assigns these roles:
 
 | Identity        | Scope         | Permission                                          |
@@ -148,7 +148,26 @@ directory named with that workflow's commit SHA instead. Run Command output is
 limited to its last 4 KB; full container logs remain on the VM.
 
 - **Azure login fails**: verify the three environment secrets, federated subject
-  and `develop` environment restriction.
+  and `develop` environment restriction. For `AADSTS700213`, compare the exact
+  `subject claim` printed by `azure/login` with the Azure federated credential.
+  This repository's token includes owner and repository IDs (`@24992981` and
+  `@1385960439`); the subject without those IDs does not match. If you ran the
+  earlier setup script, update the existing credential in Azure Cloud Shell:
+
+  ```bash
+  az identity federated-credential update \
+    --subscription dc3ee9d3-a317-4b8f-9056-959e9f93911a \
+    --resource-group presight-demo-rg \
+    --identity-name presight-github \
+    --name github-azure-demo \
+    --issuer https://token.actions.githubusercontent.com \
+    --audiences api://AzureADTokenExchange \
+    --subject 'repo:ryzom2008@24992981/presight-exercise@1385960439:environment:azure-demo'
+  ```
+
+  Wait a few minutes for propagation, then rerun the failed jobs. Updating this
+  credential does not change the client ID or require new GitHub secrets.
+
 - **Image pull/push denied**: verify registry permissions mode and corresponding
   Reader/Writer or AcrPull/AcrPush roles; allow time for role propagation.
 - **Run Command denied**: verify the GitHub identity's VM-scoped role.

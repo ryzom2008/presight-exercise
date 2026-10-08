@@ -17,7 +17,7 @@ client_id=$(az identity show -g "$resource_group" -n "$identity_name" --query cl
 az identity federated-credential create \
   --resource-group "$resource_group" --identity-name "$identity_name" \
   --name github-azure-demo --issuer https://token.actions.githubusercontent.com \
-  --subject repo:ryzom2008/presight-exercise:environment:azure-demo \
+  --subject 'repo:ryzom2008@24992981/presight-exercise@1385960439:environment:azure-demo' \
   --audiences api://AzureADTokenExchange --output none
 
 vm_id=$(az vm show -g "$resource_group" -n "$vm_name" --query id -o tsv)
