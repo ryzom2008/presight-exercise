@@ -1,0 +1,170 @@
+name: Azure demo
+
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: azure-demo-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - run: corepack enable
+      - run: yarn install --immutable
+      - run: yarn typecheck
+      - run: yarn test
+      - name: Check deployment script syntax
+        run: |
+          for script in docker/azure/*.sh; do bash -n "$script"; done
+          node --check docker/smoke.mjs
+
+  build:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Build production image, including frontend and shared runtime package
+        run: docker build --platform linux/amd64 -t "presight:$GITHUB_SHA" .
+      - name: Test the image with a disposable database
+        run: |
+          docker run -d --name presight-smoke -p 127.0.0.1:3001:3001 \
+            -v presight-ci-data:/app/data "presight:$GITHUB_SHA"
+          curl --fail --silent --show-error --retry 30 --retry-all-errors \
+            --retry-delay 2 --max-time 5 http://127.0.0.1:3001/api/health
+          node docker/smoke.mjs http://127.0.0.1:3001
+          docker exec presight-smoke node -e "const db = require('better-sqlite3')(process.env.DATABASE_PATH); db.prepare('UPDATE users SET first_name = ? WHERE id = 1').run('PersistenceMarker'); db.close()"
+          docker stop presight-smoke
+          docker rm presight-smoke
+          docker run -d --name presight-smoke -p 127.0.0.1:3001:3001 \
+            -v presight-ci-data:/app/data "presight:$GITHUB_SHA"
+          curl --fail --silent --show-error --retry 30 --retry-all-errors \
+            --retry-delay 2 --max-time 5 http://127.0.0.1:3001/api/health
+          docker exec presight-smoke node -e "const assert = require('node:assert/strict'); const db = require('better-sqlite3')(process.env.DATABASE_PATH); assert.equal(db.prepare('SELECT first_name FROM users WHERE id = 1').get().first_name, 'PersistenceMarker'); db.close()"
+      - name: Container logs
+        if: failure()
+        run: docker logs presight-smoke
+      - name: Remove disposable test resources
+        if: always()
+        run: |
+          docker rm -f presight-smoke || true
+          docker volume rm presight-ci-data || true
+      - name: Save the tested image for publishing
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop'
+        run: docker save "presight:$GITHUB_SHA" | gzip > "$RUNNER_TEMP/presight.tar.gz"
+      - uses: actions/upload-artifact@v7
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop'
+        with:
+          name: tested-image
+          path: ${{ runner.temp }}/presight.tar.gz
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: azure-demo
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: tested-image
+          path: ${{ runner.temp }}/image
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Publish the exact tested image
+        id: push
+        run: |
+          az acr login --name presightdemo --output none
+          docker load --input "$RUNNER_TEMP/image/presight.tar.gz"
+          image="presightdemo.azurecr.io/presight:$GITHUB_SHA"
+          docker tag "presight:$GITHUB_SHA" "$image"
+          docker push "$image"
+          digest=$(docker image inspect "$image" --format '{{index .RepoDigests 0}}')
+          [[ "$digest" == presightdemo.azurecr.io/presight@sha256:* ]]
+          echo "image=$digest" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: azure-demo
+      url: https://presight-demo-2008.southeastasia.cloudapp.azure.com
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy through the Azure VM agent
+        env:
+          APP_IMAGE: ${{ needs.publish.outputs.image }}
+        run: |
+          python3 docker/azure/render-command.py > "$RUNNER_TEMP/deploy.sh"
+          az vm run-command invoke \
+            --resource-group presight-demo-rg --name presight-demo-vm \
+            --command-id RunShellScript --scripts "@$RUNNER_TEMP/deploy.sh" \
+            --output json > "$RUNNER_TEMP/deploy-result.json"
+          cat "$RUNNER_TEMP/deploy-result.json"
+          # The invoke API may succeed even when the guest script fails.
+          python3 - "$RUNNER_TEMP/deploy-result.json" <<'PY'
+          import json, sys
+          result = json.load(open(sys.argv[1]))
+          succeeded = any(
+              item.get('code') == 'ComponentStatus/StdOut/succeeded'
+              and 'PRESIGHT_DEPLOY_SUCCEEDED' in item.get('message', '').splitlines()
+              for item in result.get('value', [])
+          )
+          if not succeeded:
+              raise SystemExit('VM deployment failed; inspect Run Command output above.')
+          PY
+      - name: Verify public HTTPS, frontend, and database search
+        run: node docker/smoke.mjs https://presight-demo-2008.southeastasia.cloudapp.azure.com

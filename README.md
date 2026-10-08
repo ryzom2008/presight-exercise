@@ -12,6 +12,7 @@ mappings are not a replacement for its constraints, indexes, or triggers.
 
 - [Exercise brief](docs/exercise.md)
 - [API reference](docs/api.md)
+- [Azure demo deployment and GitHub Actions setup](docs/azure-deployment.md)
 
 ## Run locally
 
