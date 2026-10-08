@@ -2,6 +2,14 @@
 
 A searchable directory of people. The React client filters by name, nationality, and hobbies, and scrolls a virtualized list. A Node.js API and SQLite database store the directory.
 
+The server repository uses Drizzle ORM with the existing `better-sqlite3` connection.
+`server/src/db/tables.ts` maps database columns to typed objects; `queryBuilder.ts`
+combines filters with `and`, `or`, and `inArray`, and `repositories/users.ts` fetches
+pages and counts. Drizzle binds input values automatically. Name search uses a small
+parameterized SQL expression for full names and literal wildcard escaping.
+Database creation and migrations remain in `server/src/db/schema.ts`; the table
+mappings are not a replacement for its constraints, indexes, or triggers.
+
 - [Exercise brief](docs/exercise.md)
 - [API reference](docs/api.md)
 
