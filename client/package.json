@@ -14,13 +14,13 @@
   "dependencies": {
     "@mantine/core": "^9.6.3",
     "@mantine/hooks": "^9.6.3",
+    "@presight/shared": "workspace:*",
     "@tanstack/react-query": "^5.104.0",
     "@tanstack/react-virtual": "^3.14.13",
     "react": "~19.2.0",
     "react-dom": "~19.2.0"
   },
   "devDependencies": {
-    "@presight/shared": "workspace:*",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",

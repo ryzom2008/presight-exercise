@@ -4,7 +4,7 @@ import { cleanup } from '@testing-library/react';
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn((query: string) => ({
-    matches: query.includes('min-width: 62em'),
+    matches: query.includes('min-width: 62em') || query.includes('min-width: 40em'),
     media: query,
     onchange: null,
     addListener: vi.fn(),
@@ -24,7 +24,7 @@ vi.stubGlobal('ResizeObserver', ResizeObserverMock);
 Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
   configurable: true,
   get() {
-    return this.classList.contains('directory-scroll') ? 600 : 156;
+    return this.classList.contains('directory-scroll') ? 600 : 480;
   },
 });
 Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
@@ -48,7 +48,7 @@ afterEach(() => {
 
 beforeEach(() => {
   vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
-    matches: query.includes('min-width: 62em'),
+    matches: query.includes('min-width: 62em') || query.includes('min-width: 40em'),
     media: query,
     onchange: null,
     addListener: vi.fn(),

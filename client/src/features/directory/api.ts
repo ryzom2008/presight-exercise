@@ -1,14 +1,16 @@
 import type {
+  DirectoryFilterRequest,
   DirectoryResponse,
   DirectorySearchRequest,
   FilterOptionsResponse,
 } from '@presight/shared';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { stateParams, type DirectoryState } from './state';
 
-export const useDirectory = (state: DirectoryState) => {
+export const useDirectory = (state: DirectoryState, enabled = true) => {
   const search = stateParams(state).toString();
   return useInfiniteQuery({
+    enabled,
     queryKey: ['users', search],
     initialPageParam: 0,
     queryFn: async ({ pageParam, signal }): Promise<DirectoryResponse> => {
@@ -28,10 +30,16 @@ export const useDirectory = (state: DirectoryState) => {
   });
 };
 
-export const useFilterOptions = ({ q, hobbies, nationalities }: DirectoryState) => {
-  const filters = { q, hobbies, nationalities };
+export const useFilterOptions = (state: DirectoryState, enabled = true) => {
+  const filters: DirectoryFilterRequest = {
+    q: state.q,
+    nationalities: state.nationalities,
+    hobbies: state.hobbies,
+  };
   return useQuery({
+    enabled,
     queryKey: ['filterOptions', filters],
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }): Promise<FilterOptionsResponse> => {
       const response = await fetch('/api/users/filter-options', {
         method: 'POST',

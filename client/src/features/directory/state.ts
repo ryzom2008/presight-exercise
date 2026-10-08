@@ -1,4 +1,9 @@
 import type { SortField, SortFields, SortDirection } from '@presight/shared';
+import {
+  MAX_NATIONALITY_FILTERS,
+  MAX_HOBBY_FILTERS,
+  FILTER_VALUE_MAX_LENGTH,
+} from '@presight/shared';
 export const sortFields = [
   'first_name',
   'last_name',
@@ -22,27 +27,26 @@ export const defaults: DirectoryState = {
 };
 export const fold = (value: string) => value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
 
-const disallowedInNameSearch = /[^\p{L}\p{M} .'’ʼ-]/gu;
+export { isValidNameSearch } from '@presight/shared';
 
-export const sanitizeNameSearch = (value: string) =>
-  value.replace(disallowedInNameSearch, '').slice(0, 200);
 const readValues = (params: URLSearchParams, key: string, limit: number) =>
   [
     ...new Set(
       params
         .getAll(key)
         .map((value) => fold(value.trim()))
-        .filter((value) => value.length > 0 && value.length <= 100),
+        .filter((value) => value.length > 0 && value.length <= FILTER_VALUE_MAX_LENGTH),
     ),
   ].slice(0, limit);
 
 export const readState = (search: string): DirectoryState => {
   const params = new URLSearchParams(search);
   const sort = params.get('sort') as SortField;
+  const q = params.get('q') ?? '';
   return {
-    q: sanitizeNameSearch(params.get('q') ?? ''),
-    nationalities: readValues(params, 'nationality', 50),
-    hobbies: readValues(params, 'hobby', 10),
+    q,
+    nationalities: readValues(params, 'nationality', MAX_NATIONALITY_FILTERS),
+    hobbies: readValues(params, 'hobby', MAX_HOBBY_FILTERS),
     sort: sortFields.includes(sort) ? sort : defaults.sort,
     direction: params.get('direction') === 'desc' ? 'desc' : 'asc',
   };

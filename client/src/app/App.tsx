@@ -1,36 +1,29 @@
 import { useMemo, useState } from 'react';
-import {
-  Box,
-  Button,
-  Container,
-  Drawer,
-  Group,
-  Paper,
-  Pill,
-  Stack,
-  Text,
-  Title,
-} from '@mantine/core';
+import { Button, Container, Drawer, Group, Paper, Pill, Stack, Text, Title } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
 import { useDirectory, useFilterOptions } from '../features/directory/api';
 import { Filters } from '../features/directory/components/Filters';
 import { DirectoryControls } from '../features/directory/components/DirectoryControls';
 import { DirectoryResults } from '../features/directory/components/DirectoryResults';
-import { fold, stateParams } from '../features/directory/state';
+import { fold, isValidNameSearch, stateParams } from '../features/directory/state';
 import { useDirectoryState } from '../features/directory/hooks/useDirectoryState';
 import '../features/directory/styles.css';
 
 export const App = () => {
-  const { state, update } = useDirectoryState();
+  const { state, update, goHome } = useDirectoryState();
   const [debouncedSearch] = useDebouncedValue(state.q, 300);
   const requestState = useMemo(() => ({ ...state, q: debouncedSearch }), [state, debouncedSearch]);
-  const query = useDirectory(requestState);
-  const filterQuery = useFilterOptions(requestState);
+
+  const ready = isValidNameSearch(state.q) && isValidNameSearch(debouncedSearch);
+  const usersQuery = useDirectory(requestState, ready);
+  const filterQuery = useFilterOptions(requestState, ready);
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const desktop = useMediaQuery('(min-width: 62em)');
-  const firstPage = query.data?.pages[0];
+  const firstPage = usersQuery.data?.pages[0];
   const selectedCount = state.hobbies.length + state.nationalities.length;
   const active = selectedCount > 0 || state.q.length > 0;
+
   const toggle = (key: 'hobbies' | 'nationalities', value: string) => {
     const normalized = fold(value);
     update({
@@ -39,7 +32,9 @@ export const App = () => {
         : [...state[key], normalized],
     });
   };
+
   const clearFilters = () => update({ hobbies: [], nationalities: [] });
+
   const selectedFilters = (
     <Group gap="xs" aria-label="Selected filters">
       {(['nationalities', 'hobbies'] as const).flatMap((key) =>
@@ -60,39 +55,47 @@ export const App = () => {
       )}
     </Group>
   );
+
   const filterPanel = (
     <Filters
       state={state}
       options={filterQuery.data}
-      loading={filterQuery.isPending}
+      loading={filterQuery.isLoading}
       failed={filterQuery.isError}
       onRetry={() => void filterQuery.refetch()}
       onToggle={toggle}
+      onClearGroup={(key) => update({ [key]: [] })}
       onClear={clearFilters}
     />
   );
 
   return (
     <>
-      <Box component="header" bg="white" className="site-header">
-        <Container size="lg">
-          <Group h={{ base: 56, sm: 68 }} justify="space-between">
-            <Group gap="sm">
-              <Box className="brand-mark" aria-hidden="true">
-                P
-              </Box>
-              <Text fw={750} c="brand">
-                People Directory
-              </Text>
-            </Group>
-            <Text size="sm" c="dimmed" visibleFrom="sm">
-              People. Interests. Connections.
-            </Text>
-          </Group>
-        </Container>
-      </Box>
-      <Container component="main" size="lg" py={{ base: 16, sm: 28 }} px={{ base: 12, sm: 'md' }}>
-        <Stack gap="lg" className="mobile-section-gap">
+      <Container
+        component="main"
+        size="lg"
+        className="directory-page"
+        py={12}
+        px={{ base: 12, sm: 'md' }}
+      >
+        <Stack gap={12} className="directory-shell">
+          <section className="directory-intro" aria-labelledby="directory-heading">
+            <Title order={1} id="directory-heading" className="directory-heading">
+              <a
+                href="/"
+                className="directory-home-link"
+                onClick={(event) => {
+                  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                  event.preventDefault();
+                  setDrawerOpen(false);
+                  goHome();
+                }}
+              >
+                People directory
+              </a>
+            </Title>
+            <Text className="directory-intro-copy">Find people. Discover shared interests.</Text>
+          </section>
           <DirectoryControls state={state} update={update} />
           <div className="directory-layout">
             {desktop && (
@@ -106,14 +109,16 @@ export const App = () => {
                 {filterPanel}
               </Paper>
             )}
-            <Stack gap="md" className="mobile-results-gap" style={{ minWidth: 0 }}>
+            <Stack gap="md" className="directory-results mobile-results-gap">
               <Group justify="space-between">
                 <Text role="status" aria-live="polite" fw={600}>
-                  {query.isPending
-                    ? 'Finding people…'
-                    : firstPage
-                      ? `${firstPage.pagination.total.toLocaleString()} people found`
-                      : 'Directory unavailable'}
+                  {!ready
+                    ? 'Enter a name to search'
+                    : usersQuery.isPending
+                      ? 'Finding people for you…'
+                      : firstPage
+                        ? `${firstPage.pagination.total.toLocaleString()} people found`
+                        : 'Directory unavailable'}
                 </Text>
                 {!desktop && (
                   <Button variant="default" onClick={() => setDrawerOpen(true)}>
@@ -131,12 +136,14 @@ export const App = () => {
                 )}
               </Group>
               {selectedCount > 0 && selectedFilters}
-              <DirectoryResults
-                key={stateParams(requestState).toString()}
-                query={query}
-                active={active}
-                onClear={() => update({ q: '', hobbies: [], nationalities: [] })}
-              />
+              {ready && (
+                <DirectoryResults
+                  key={stateParams(requestState).toString()}
+                  query={usersQuery}
+                  active={active}
+                  onClear={() => update({ q: '', hobbies: [], nationalities: [] })}
+                />
+              )}
             </Stack>
           </div>
         </Stack>

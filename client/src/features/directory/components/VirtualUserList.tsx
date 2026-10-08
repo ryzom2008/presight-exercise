@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useMediaQuery } from '@mantine/hooks';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { DirectoryUser } from '@presight/shared';
 import { UserCard } from './UserCard';
@@ -14,21 +15,23 @@ interface Props {
 
 export const VirtualUserList = ({ users, total, hasMore, fetching, failed, onLoadMore }: Props) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const columns = useMediaQuery('(min-width: 40em)') ? 2 : 1;
+  const rowCount = Math.ceil(users.length / columns);
   const virtualizer = useVirtualizer({
-    count: users.length,
+    count: rowCount,
     getScrollElement: () => scrollRef.current,
-    getItemKey: (index) => users[index]!.id,
-    estimateSize: () => 156,
-    overscan: 4,
+    getItemKey: (index) => `${columns}-${users[index * columns]!.id}`,
+    estimateSize: () => 412,
+    overscan: 2,
   });
   const rows = virtualizer.getVirtualItems();
   const lastIndex = rows.at(-1)?.index ?? -1;
 
   useEffect(() => {
-    if (lastIndex >= users.length - 3 && lastIndex >= 0 && hasMore && !fetching && !failed) {
+    if (lastIndex >= rowCount - 2 && lastIndex >= 0 && hasMore && !fetching && !failed) {
       onLoadMore();
     }
-  }, [lastIndex, users.length, hasMore, fetching, failed, onLoadMore]);
+  }, [lastIndex, rowCount, hasMore, fetching, failed, onLoadMore]);
 
   return (
     <div
@@ -48,13 +51,23 @@ export const VirtualUserList = ({ users, total, hasMore, fetching, failed, onLoa
             key={row.key}
             ref={virtualizer.measureElement}
             data-index={row.index}
-            role="listitem"
-            aria-posinset={row.index + 1}
-            aria-setsize={total}
+            role="presentation"
             className="virtual-user-row"
-            style={{ transform: `translateY(${row.start}px)` }}
+            style={{
+              transform: `translateY(${row.start}px)`,
+              gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+            }}
           >
-            <UserCard user={users[row.index]!} />
+            {users.slice(row.index * columns, (row.index + 1) * columns).map((user, index) => (
+              <div
+                key={user.id}
+                role="listitem"
+                aria-posinset={row.index * columns + index + 1}
+                aria-setsize={total}
+              >
+                <UserCard user={user} />
+              </div>
+            ))}
           </div>
         ))}
       </div>

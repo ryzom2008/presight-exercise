@@ -1,82 +1,36 @@
-import type { FilterOptionsResponse, DirectoryUser, FilterOption } from '@presight/shared';
+import type { FilterOptionsResponse, DirectoryUser } from '@presight/shared';
 import type Database from 'better-sqlite3';
+import { asc, count, desc, eq, inArray } from 'drizzle-orm';
+import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { hobbies, userHobbies, users } from '../db/tables.js';
 import type { UserQuery, UserFilters } from '../validation/userQuery.js';
-import { buildUserFilter, buildUserOrderBy, type UserFilter } from './queryBuilder.js';
+import { buildUserFilter, buildUserOrderBy } from './queryBuilder.js';
 
-interface UserRow extends Omit<DirectoryUser, 'hobbies'> {
-  hobbies: string;
-}
-
-const toUser = (row: UserRow): DirectoryUser => ({
-  ...row,
-  hobbies: JSON.parse(row.hobbies) as string[],
-});
-
-const USER_COLUMNS = `
-  u.id, u.avatar, u.first_name, u.last_name, u.age, u.nationality,
-  (SELECT json_group_array(h.value ORDER BY h.value COLLATE NOCASE)
-   FROM user_hobbies uh JOIN hobbies h ON h.id = uh.hobby_id
-   WHERE uh.user_id = u.id) AS hobbies
-`;
-
-const countUsers = (db: Database.Database, { where, params }: UserFilter): number => {
-  const statement = db.prepare<(string | number)[], { total: number }>(
-    `
-    SELECT count(*) AS total FROM users u WHERE ${where}
-  `,
-  );
-  const row = statement.get(...params);
-  if (!row) throw new Error('Unable to count users');
-  return row.total;
-};
-
-const getTopNationalities = (
-  db: Database.Database,
-  { where, params }: UserFilter,
-): FilterOption[] => {
-  const statement = db.prepare<(string | number)[], FilterOption>(
-    `
-    SELECT u.nationality AS value, count(*) AS count
-    FROM users u
-    WHERE ${where}
-    GROUP BY u.nationality
-    ORDER BY count DESC, value COLLATE NOCASE ASC
-    LIMIT 20
-  `,
-  );
-  return statement.all(...params);
-};
-
-const getTopHobbies = (db: Database.Database, { where, params }: UserFilter): FilterOption[] => {
-  const statement = db.prepare<(string | number)[], FilterOption>(
-    `
-    SELECT h.value, count(*) AS count
-    FROM users u
-    JOIN user_hobbies uh ON uh.user_id = u.id
-    JOIN hobbies h ON h.id = uh.hobby_id
-    WHERE ${where}
-    GROUP BY h.id
-    ORDER BY count DESC, h.value COLLATE NOCASE ASC
-    LIMIT 20
-  `,
-  );
-  return statement.all(...params);
-};
-
-const getUserPage = (
-  db: Database.Database,
-  { where, params }: UserFilter,
-  query: UserQuery,
-): UserRow[] => {
-  const statement = db.prepare<(string | number)[], UserRow>(
-    `
-    SELECT ${USER_COLUMNS} FROM users u
-    WHERE ${where}
-    ${buildUserOrderBy(query)}
-    LIMIT ? OFFSET ?
-  `,
-  );
-  return statement.all(...params, query.limit, query.offset);
+// Fetch hobbies for the whole page in one query, including users with none.
+const withHobbies = (
+  db: BetterSQLite3Database,
+  page: (typeof users.$inferSelect)[],
+): DirectoryUser[] => {
+  if (!page.length) return [];
+  const rows = db
+    .select({ userId: userHobbies.userId, value: hobbies.value })
+    .from(userHobbies)
+    .innerJoin(hobbies, eq(hobbies.id, userHobbies.hobbyId))
+    .where(
+      inArray(
+        userHobbies.userId,
+        page.map((user) => user.id),
+      ),
+    )
+    .orderBy(asc(hobbies.value))
+    .all();
+  const byUser = new Map<number, string[]>();
+  for (const row of rows) {
+    const values = byUser.get(row.userId) ?? [];
+    values.push(row.value);
+    byUser.set(row.userId, values);
+  }
+  return page.map((user) => ({ ...user, hobbies: byUser.get(user.id) ?? [] }));
 };
 
 export interface UserSearchResult {
@@ -89,22 +43,49 @@ export interface UserRepository {
   filterOptions: (filters: UserFilters) => FilterOptionsResponse;
 }
 
-export const createUserRepository = (db: Database.Database): UserRepository => ({
-  // All queries read the same SQLite snapshot.
-  find: (query) =>
-    db.transaction(() => {
-      const filter = buildUserFilter(query);
-      return {
-        users: getUserPage(db, filter, query).map(toUser),
-        total: countUsers(db, filter),
-      };
-    })(),
-  filterOptions: (filters) =>
-    db.transaction(() => {
-      const filter = buildUserFilter(filters);
-      return {
-        hobbies: getTopHobbies(db, filter),
-        nationalities: getTopNationalities(db, filter),
-      };
-    })(),
-});
+export const createUserRepository = (sqlite: Database.Database): UserRepository => {
+  const db = drizzle(sqlite);
+  return {
+    // Keep the page, hobbies, and total in one SQLite snapshot.
+    find: (query) =>
+      db.transaction((tx) => {
+        const filter = buildUserFilter(tx, query);
+        const page = tx
+          .select()
+          .from(users)
+          .where(filter)
+          .orderBy(...buildUserOrderBy(query))
+          .limit(query.limit)
+          .offset(query.offset)
+          .all();
+        const total = tx.select({ total: count() }).from(users).where(filter).get()!.total;
+        return { users: withHobbies(tx, page), total };
+      }),
+    filterOptions: (filters) =>
+      db.transaction((tx) => {
+        const filter = buildUserFilter(tx, filters);
+        // Ignore this group's own selection so other nationalities remain available.
+        const nationalityFilter = buildUserFilter(tx, { ...filters, nationalities: [] });
+        return {
+          hobbies: tx
+            .select({ value: hobbies.value, count: count() })
+            .from(users)
+            .innerJoin(userHobbies, eq(userHobbies.userId, users.id))
+            .innerJoin(hobbies, eq(hobbies.id, userHobbies.hobbyId))
+            .where(filter)
+            .groupBy(hobbies.id)
+            .orderBy(desc(count()), asc(hobbies.value))
+            .limit(20)
+            .all(),
+          nationalities: tx
+            .select({ value: users.nationality, count: count() })
+            .from(users)
+            .where(nationalityFilter)
+            .groupBy(users.nationality)
+            .orderBy(desc(count()), asc(users.nationality))
+            .limit(20)
+            .all(),
+        };
+      }),
+  };
+};

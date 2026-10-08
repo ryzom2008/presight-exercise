@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Button, NativeSelect, Paper, TextInput } from '@mantine/core';
-import { sanitizeNameSearch, type DirectoryState } from '../state';
+import { isValidNameSearch, type DirectoryState } from '../state';
+import { NAME_SEARCH_MAX_LENGTH } from '@presight/shared';
 import type { SortField, SortDirection } from '@presight/shared';
 
-const nameSearchError = 'Letters, spaces, hyphens, apostrophes, and periods only.';
+const nameSearchError =
+  'Name is invalid. Include a letter and use single spaces, hyphens, apostrophes, and periods. Do not place apostrophes or hyphens next to each other.';
 
 export const DirectoryControls = ({
   state,
@@ -12,34 +14,49 @@ export const DirectoryControls = ({
   state: DirectoryState;
   update: (patch: Partial<DirectoryState>, replace?: boolean) => void;
 }) => {
-  const [rejectedCharacters, setRejectedCharacters] = useState(false);
+  const [name, setName] = useState(state.q);
+  const invalidName = !isValidNameSearch(name);
+
   useEffect(() => {
-    if (state.q === '') setRejectedCharacters(false);
+    setName(state.q);
   }, [state.q]);
 
   return (
-    <Paper withBorder p={{ base: 12, sm: 'md' }} className="directory-controls">
+    <Paper withBorder p={12} className="directory-controls">
       <TextInput
+        leftSection={
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            aria-hidden="true"
+          >
+            <circle cx="10.5" cy="10.5" r="6.5" />
+            <path d="m16 16 4.5 4.5" />
+          </svg>
+        }
         label="Search people"
         placeholder="Search by first or last name"
-        value={state.q}
-        maxLength={200}
-        error={rejectedCharacters ? nameSearchError : undefined}
+        value={name}
+        maxLength={NAME_SEARCH_MAX_LENGTH}
+        error={invalidName ? nameSearchError : undefined}
         onChange={(event) => {
           const raw = event.currentTarget.value;
-          const next = sanitizeNameSearch(raw);
-          setRejectedCharacters(next !== raw);
-          update({ q: next }, true);
+          setName(raw);
+          if (isValidNameSearch(raw)) update({ q: raw }, true);
         }}
         className="search-control"
         rightSection={
-          state.q ? (
+          name ? (
             <Button
               size="compact-xs"
               variant="subtle"
               aria-label="Clear search"
               onClick={() => {
-                setRejectedCharacters(false);
+                setName('');
                 update({ q: '' }, true);
               }}
             >

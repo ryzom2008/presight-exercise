@@ -1,6 +1,8 @@
 import type Database from 'better-sqlite3';
 import { firstNames, hobbies, lastNames, nationalities } from './seed-data.js';
 
+export const DEFAULT_SEED_COUNT = 10_000;
+
 export interface SeedOptions {
   count?: number;
   seed?: number;
@@ -15,11 +17,10 @@ const randomGenerator = (seed: number) => {
   };
 };
 
-const avatar = (id: number): string =>
-  `https://api.dicebear.com/10.x/lorelei/svg?seed=${id}&size=96`;
+const avatar = (id: number): string => `https://i.pravatar.cc/400?u=presight-${id}`;
 
 export const seedDatabase = (db: Database.Database, options: SeedOptions = {}) => {
-  const { count = 2000, seed = 42, reset = false } = options;
+  const { count = DEFAULT_SEED_COUNT, seed = 42, reset = false } = options;
   if (!Number.isSafeInteger(count) || count < 1 || count > 100000) {
     throw new Error('Seed count must be an integer between 1 and 100000');
   }

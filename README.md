@@ -2,6 +2,14 @@
 
 A searchable directory of people. The React client filters by name, nationality, and hobbies, and scrolls a virtualized list. A Node.js API and SQLite database store the directory.
 
+The server repository uses Drizzle ORM with the existing `better-sqlite3` connection.
+`server/src/db/tables.ts` maps database columns to typed objects; `queryBuilder.ts`
+combines filters with `and`, `or`, and `inArray`, and `repositories/users.ts` fetches
+pages and counts. Drizzle binds input values automatically. Name search uses a small
+parameterized SQL expression for full names and literal wildcard escaping.
+Database creation and migrations remain in `server/src/db/schema.ts`; the table
+mappings are not a replacement for its constraints, indexes, or triggers.
+
 - [Exercise brief](docs/exercise.md)
 - [API reference](docs/api.md)
 
@@ -28,16 +36,22 @@ Open http://localhost:5173.
 
 ```sh
 # Replace the directory (deletes existing directory data).
-yarn db:seed --reset --count 2000 --seed 42
+yarn db:seed --reset --count 10000 --seed 42
 ```
 
-The default database is `server/data/directory.sqlite`. Seeding creates 2,000 users and
+The default database is `server/data/directory.sqlite`. Seeding creates 10,000 users and
 preserves existing data unless `--reset` is supplied. Set `DATABASE_PATH` to use another
 database; relative paths resolve from `server/`. Use the same value for seeding and running.
-Avatar fields contain deterministic DiceBear URLs based on user IDs, so displaying avatars
-requires internet access from the browser.
+Avatar fields contain stable [Pravatar](https://www.pravatar.cc/) photo URLs based on user IDs
+(`https://i.pravatar.cc/400?u=presight-1`), so displaying avatars requires internet access
+from the browser. Photos may repeat across users.
 
 Check the application with `yarn test`, `yarn typecheck`, and `yarn build`.
+
+Client and server validation limits live in `shared/index.js`, with TypeScript declarations
+and API types in `shared/index.d.ts`. The shared package needs no compilation step: Vite
+bundles its constants for the client, and Node loads them at runtime on the server.
+The Docker image includes the shared package as a production dependency.
 
 ## Run with Docker Compose
 
@@ -62,7 +76,7 @@ deletes the volume and its data. Docker uses a separate database from local deve
 
 ```sh
 # Replace the Docker directory (deletes existing directory data).
-docker compose exec app node server/dist/db/seed-cli.js --reset --count 2000 --seed 42
+docker compose exec app node server/dist/db/seed-cli.js --reset --count 10000 --seed 42
 ```
 
 To verify persistence, edit a test record, recreate the container, and query it again:

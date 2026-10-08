@@ -1,16 +1,16 @@
 import { createTheme, type CSSVariablesResolver, type MantineColorsTuple } from '@mantine/core';
 
 const brand: MantineColorsTuple = [
-  '#e8f3ee',
-  '#d3e6dc',
-  '#a8cdb9',
-  '#7ab396',
-  '#539c79',
-  '#368c64',
-  '#245c49',
-  '#1c4d3d',
-  '#143e31',
-  '#0c2f25',
+  '#edf7f3',
+  '#d5eee5',
+  '#a9e4d4',
+  '#7acdbb',
+  '#4caa98',
+  '#288777',
+  '#176b63',
+  '#12584f',
+  '#153d3a',
+  '#182d29',
 ];
 
 export const theme = createTheme({
@@ -18,7 +18,7 @@ export const theme = createTheme({
   primaryShade: 6,
   fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   defaultRadius: 'md',
-  radius: { md: '12px' },
+  radius: { md: '4px' },
   headings: {
     fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     sizes: {
@@ -32,9 +32,12 @@ export const theme = createTheme({
 export const cssVariablesResolver: CSSVariablesResolver = () => ({
   variables: {},
   light: {
-    '--mantine-color-body': '#f5f7f6',
-    '--mantine-color-text': '#1c2923',
-    '--mantine-color-dimmed': '#5c6b63',
+    '--mantine-color-default': '#FCFCF8',
+    '--mantine-color-default-border': '#A8BDB2',
+    '--mantine-color-default-hover': '#EDF3F0',
+    '--mantine-color-body': '#EDF3F0',
+    '--mantine-color-text': '#182D29',
+    '--mantine-color-dimmed': '#52685E',
   },
   dark: {},
 });

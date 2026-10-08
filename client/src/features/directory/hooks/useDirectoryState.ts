@@ -22,5 +22,10 @@ export const useDirectoryState = () => {
     window.history[replace ? 'replaceState' : 'pushState'](null, '', url);
     window.dispatchEvent(new Event(event));
   };
-  return { state, update };
+  const goHome = () => {
+    if (window.location.pathname === '/' && !window.location.search && !window.location.hash) return;
+    window.history.pushState(null, '', '/');
+    window.dispatchEvent(new Event(event));
+  };
+  return { state, update, goHome };
 };

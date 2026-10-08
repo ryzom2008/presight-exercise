@@ -1,4 +1,4 @@
-import { Alert, Button, Paper, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { Alert, Button, Paper, Skeleton, SimpleGrid, Text, Title } from '@mantine/core';
 import { useDirectory } from '../api';
 import { VirtualUserList } from './VirtualUserList';
 
@@ -13,6 +13,7 @@ export const DirectoryResults = ({
 }) => {
   const firstPage = query.data?.pages[0];
   const users = query.data?.pages.flatMap((page) => page.users) ?? [];
+
   return (
     <>
       {query.isError && !query.isFetchNextPageError && (
@@ -30,16 +31,23 @@ export const DirectoryResults = ({
         </Alert>
       )}
       {query.isPending ? (
-        <Stack gap="sm" className="mobile-card-list-gap" aria-label="Loading people">
+        <SimpleGrid
+          cols={{ base: 1, xs: 2 }}
+          spacing={32}
+          p={{ base: 12, xs: 24 }}
+          aria-label="Loading people"
+        >
           {[0, 1, 2, 3].map((key) => (
-            <Skeleton key={key} h={{ base: 120, sm: 156 }} radius="md" />
+            <Skeleton key={key} h={380} radius={0} />
           ))}
-        </Stack>
+        </SimpleGrid>
       ) : firstPage && users.length === 0 ? (
-        <Paper withBorder p="xl" ta="center">
+        <Paper withBorder p="xl" ta="center" className="directory-empty">
           <Title order={2}>No people found</Title>
           <Text c="dimmed" mt="sm">
-            Try another name or remove a filter to broaden your search.
+            {active
+              ? 'A small change can open up more connections. Try a different name or remove a filter.'
+              : 'The directory is quiet for now. Check back soon to discover new people.'}
           </Text>
           {active && (
             <Button mt="lg" variant="light" onClick={onClear}>

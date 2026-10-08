@@ -35,15 +35,15 @@ defaults.
 }
 ```
 
-| Field           | Type     | Default        | Validation and behavior                                                                                                                |
-| --------------- | -------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `q`             | string   | `""`           | Maximum 200 characters. Matches first name, last name, or full name case-insensitively. SQL wildcard characters are treated literally. |
-| `nationalities` | string[] | `[]`           | Maximum 50 values, each 1–100 characters. A user may match any selected nationality.                                                   |
-| `hobbies`       | string[] | `[]`           | Maximum 10 values, each 1–100 characters. A user must have every selected hobby.                                                       |
-| `sort`          | string   | `"first_name"` | One of `first_name`, `last_name`, `age`, or `nationality`.                                                                             |
-| `direction`     | string   | `"asc"`        | Either `asc` or `desc`. The user ID is the final tie-breaker in the same direction.                                                    |
-| `offset`        | integer  | `0`            | Minimum 0.                                                                                                                             |
-| `limit`         | integer  | `20`           | From 1 to 100.                                                                                                                         |
+| Field           | Type     | Default        | Validation and behavior                                                                                                              |
+| --------------- | -------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `q`             | string   | `""`           | Maximum 200 characters. Matches first name, last name, or full name case-insensitively. Uses the same name validation as the client. |
+| `nationalities` | string[] | `[]`           | Maximum 195 values, each 1–100 characters. A user may match any selected nationality.                                                |
+| `hobbies`       | string[] | `[]`           | Maximum 10 values, each 1–100 characters. A user must have every selected hobby.                                                     |
+| `sort`          | string   | `"first_name"` | One of `first_name`, `last_name`, `age`, or `nationality`.                                                                           |
+| `direction`     | string   | `"asc"`        | Either `asc` or `desc`. The user ID is the final tie-breaker in the same direction.                                                  |
+| `offset`        | integer  | `0`            | Minimum 0.                                                                                                                           |
+| `limit`         | integer  | `20`           | From 1 to 100.                                                                                                                       |
 
 Text, nationality, and hobby filters apply together. Filter strings are trimmed,
 case-insensitive, deduplicated, and normalized by the server.
@@ -55,7 +55,7 @@ Example response:
   "users": [
     {
       "id": 42,
-      "avatar": "https://api.dicebear.com/10.x/lorelei/svg?seed=42&size=96",
+      "avatar": "https://i.pravatar.cc/400?u=presight-42",
       "first_name": "Ana",
       "last_name": "Smith",
       "age": 30,
@@ -80,7 +80,10 @@ the next request's `offset` to continue pagination.
 
 ### `POST /api/users/filter-options`
 
-Returns the top 20 hobbies and nationalities for the active text and selected filters.
+Returns up to 20 values per filter group. Hobby counts use the active text and all
+selected filters. Nationality counts use the text and hobby filters but ignore
+selected nationalities, so additional nationalities remain available to select.
+Selected values outside the top 20 remain removable through the selected-filter chips.
 It accepts only `q`, `nationalities`, and `hobbies`, with the same validation and matching
 rules as the search endpoint.
 
@@ -130,3 +133,5 @@ Errors use this shape:
 | `500`  | `INTERNAL_ERROR`         | The server could not load users. Internal details are not exposed.      |
 
 Unknown `/api` routes return `404` with `{ "error": { "message": "API route not found" } }`.
+
+Name searches may be empty. Nonempty searches must include a letter, contain only Unicode letters and combining marks, spaces, apostrophes, hyphens, or periods, and must not contain repeated spaces or adjacent apostrophes/hyphens. Validation runs before trimming; invalid names return `400 INVALID_QUERY` on both endpoints.

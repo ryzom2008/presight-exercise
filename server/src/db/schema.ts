@@ -7,7 +7,8 @@ export function migrate(db: Database.Database): void {
     if (version > 1) throw new Error(`Unsupported database schema version: ${version}`);
     if (version === 1) return;
 
-    db.exec(`
+    if (version < 1)
+      db.exec(`
       CREATE TABLE users (
         id INTEGER PRIMARY KEY,
         avatar TEXT NOT NULL CHECK (length(trim(avatar)) > 0),
