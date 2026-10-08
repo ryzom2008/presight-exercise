@@ -1,3 +1,8 @@
+import {
+  NAME_SEARCH_MAX_LENGTH,
+  MAX_NATIONALITY_FILTERS,
+  MAX_HOBBY_FILTERS,
+} from '@presight/shared';
 import type { SortFields } from '@presight/shared';
 import { z } from 'zod';
 
@@ -20,9 +25,9 @@ const filterValues = (max: number) =>
     .transform((values) => [...new Set(values)].sort());
 
 const userFilterSchema = z.strictObject({
-  q: z.string().max(200).trim().transform(fold).default(''),
-  nationalities: filterValues(50),
-  hobbies: filterValues(10),
+  q: z.string().max(NAME_SEARCH_MAX_LENGTH).trim().transform(fold).default(''),
+  nationalities: filterValues(MAX_NATIONALITY_FILTERS),
+  hobbies: filterValues(MAX_HOBBY_FILTERS),
 });
 
 const userQuerySchema = userFilterSchema.extend({

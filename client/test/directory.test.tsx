@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MantineProvider } from '@mantine/core';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../src/app/App';
-import { readState, stateParams } from '../src/features/directory/state';
+import { isValidNameSearch, readState, stateParams } from '../src/features/directory/state';
 import { theme } from '../src/app/theme';
 import type {
   DirectoryResponse,
@@ -62,8 +62,20 @@ const mount = () => {
   );
 };
 
+describe('name validation', () => {
+  it.each(["Kate''", 'Kate--', "Kate'-", 'Kate’ʼ', "'''", '---', 'ʼ', 'ʼʼ', '.', ' - '])(
+    'rejects repeated punctuation or names without letters: %s',
+    (name) => expect(isValidNameSearch(name)).toBe(false),
+  );
+
+  it.each(['', "O'Neil", 'Jean-Luc', 'D’Arcy', 'OʼNeil', 'José.', 'Anne-Marie Smith-Jones'])(
+    'allows valid names and an empty search: %s',
+    (name) => expect(isValidNameSearch(name)).toBe(true),
+  );
+});
+
 describe('URL state', () => {
-  it('round-trips name characters and strips digits and symbols from search', () => {
+  it('round-trips valid names and preserves invalid names for validation', () => {
     const state = readState(
       "?q=Jean-Luc%20O'Neil&hobby=Reading&hobby=SWIMMING&nationality=French&sort=age&direction=desc",
     );
@@ -74,13 +86,57 @@ describe('URL state', () => {
         '?q=Ana123%20%26%20Alex!&sort=invalid&direction=oops&hobby=&hobby=Reading&hobby=reading',
       ),
     ).toEqual({
-      q: 'Ana  Alex',
+      q: 'Ana123 & Alex!',
       hobbies: ['reading'],
       nationalities: [],
       sort: 'first_name',
       direction: 'asc',
     });
   });
+});
+
+it('shows invalid URL names and blocks requests when navigating from a valid search', async () => {
+  window.history.replaceState(null, '', '/?q=Alex&sort=age');
+  const fetchMock = mockSearch().mockResolvedValue(json(response()));
+  mount();
+  await screen.findByRole('article', { name: 'Alex Smith' });
+  const requestCount = vi.mocked(fetch).mock.calls.length;
+
+  await act(async () => {
+    window.history.pushState(null, '', '/?q=Alex123&sort=nationality');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  });
+  expect(vi.mocked(fetch).mock.calls).toHaveLength(requestCount);
+  expect((screen.getByLabelText('Search people') as HTMLInputElement).value).toBe('Alex123');
+  expect(screen.getByText(/Name is invalid/)).toBeTruthy();
+  expect((screen.getByLabelText('Sort by') as HTMLSelectElement).value).toBe('nationality');
+  expect(screen.queryByLabelText('Loading people')).toBeNull();
+
+  fetchMock.mockResolvedValue(json(response('Jean')));
+  fireEvent.change(screen.getByLabelText('Search people'), { target: { value: 'Jean' } });
+  await screen.findByRole('article', { name: 'Jean Smith' });
+  expect(new URLSearchParams(window.location.search).get('sort')).toBe('nationality');
+});
+
+it('shows a validation error and skips requests for an invalid initial URL name', async () => {
+  window.history.replaceState(null, '', '/?q=Alex123');
+  const fetchMock = vi
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation((url) =>
+      Promise.resolve(json(url === '/api/users/filter-options' ? filterOptions : response())),
+    );
+  mount();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  });
+  expect(fetchMock).not.toHaveBeenCalled();
+  expect(screen.getByText(/Name is invalid/)).toBeTruthy();
+  expect(screen.queryByLabelText('Loading people')).toBeNull();
+
+  fireEvent.change(screen.getByLabelText('Search people'), { target: { value: 'Alex' } });
+  await screen.findByRole('article', { name: 'Alex Smith' });
+  expect(fetchMock).toHaveBeenCalled();
 });
 
 it('restores shared state and renders cards with only two hobby labels and remaining count', async () => {
@@ -133,6 +189,20 @@ it('refreshes results and options on filter/search changes; keeps absent selecti
   expect(new URLSearchParams(window.location.search).get('q')).toBe("Jean-Luc O'Neil");
 });
 
+it('keeps kate123 visible when typed without pausing after the valid prefix', async () => {
+  mockSearch().mockImplementation(async () => json(response()));
+  mount();
+  await screen.findByRole('article');
+  const search = screen.getByLabelText('Search people') as HTMLInputElement;
+  await userEvent.type(search, 'kate123');
+  expect(search.value).toBe('kate123');
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  });
+  expect(search.value).toBe('kate123');
+  expect(search.getAttribute('aria-invalid')).toBe('true');
+});
+
 it('keeps invalid names editable without updating the URL or requesting them', async () => {
   const fetchMock = mockSearch().mockImplementation(async () => json(response()));
   mount();
@@ -148,7 +218,7 @@ it('keeps invalid names editable without updating the URL or requesting them', a
   expect(search.getAttribute('aria-invalid')).toBe('true');
   expect(
     screen.getByText(
-      'Name is invalid. Use letters, single spaces, hyphens, apostrophes, and periods; spaces alone are not valid.',
+      'Name is invalid. Include a letter and use single spaces, hyphens, apostrophes, and periods. Do not place apostrophes or hyphens next to each other.',
     ),
   ).toBeTruthy();
   expect(window.location.href).toBe(previousUrl);
@@ -160,7 +230,7 @@ it('keeps invalid names editable without updating the URL or requesting them', a
   });
   expect(fetchMock.mock.calls).toHaveLength(previousRequests);
 
-  for (const name of [' ', '   ', 'Ana  Smith', 'Ana   ']) {
+  for (const name of [' ', '   ', 'Ana  Smith', 'Ana   ', "Kate''", 'Kate--', "'''", '---']) {
     fireEvent.change(search, { target: { value: name } });
     expect((search as HTMLInputElement).value).toBe(name);
     expect(search.getAttribute('aria-invalid')).toBe('true');

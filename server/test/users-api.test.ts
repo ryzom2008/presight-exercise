@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import request from 'supertest';
+import {
+  NAME_SEARCH_MAX_LENGTH,
+  MAX_NATIONALITY_FILTERS,
+  MAX_HOBBY_FILTERS,
+} from '@presight/shared';
 import { createApp } from '../src/app.js';
 import { openDatabase } from '../src/db/connection.js';
 import { sortFields } from '../src/validation/userQuery.js';
@@ -302,10 +307,10 @@ test('invalid filters and pagination parameters return structured 400 errors', a
       { hobbies: 'Reading' },
       { nationalities: 'French' },
       { hobbies: [1] },
-      { q: 'a'.repeat(201) },
+      { q: 'a'.repeat(NAME_SEARCH_MAX_LENGTH + 1) },
       { hobbies: ['a'.repeat(101)] },
-      { hobbies: Array(11).fill('Reading') },
-      { nationalities: Array(51).fill('French') },
+      { hobbies: Array(MAX_HOBBY_FILTERS + 1).fill('Reading') },
+      { nationalities: Array(MAX_NATIONALITY_FILTERS + 1).fill('French') },
       { cursor: 'obsolete' },
       { offset: -1 },
       { offset: 1.5 },

@@ -1,2 +1,3 @@
-// Node resolves this file. The public API is types-only and lives in index.d.ts.
-export {};
+export const NAME_SEARCH_MAX_LENGTH = 200;
+export const MAX_NATIONALITY_FILTERS = 195;
+export const MAX_HOBBY_FILTERS = 10;

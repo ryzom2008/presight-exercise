@@ -1,5 +1,5 @@
 import { Alert, Badge, Button, Checkbox, Group, Skeleton, Stack, Text, Title } from '@mantine/core';
-import type { FilterOption } from '@presight/shared';
+import { MAX_NATIONALITY_FILTERS, MAX_HOBBY_FILTERS, type FilterOption } from '@presight/shared';
 import { fold, type DirectoryState } from '../state';
 
 interface Props {
@@ -114,17 +114,17 @@ export const Filters = ({ state, options, loading, failed, onToggle, onClear, on
       hint="Match any selected nationality"
       options={options?.nationalities}
       selected={state.nationalities}
-      max={50}
+      max={MAX_NATIONALITY_FILTERS}
       loading={loading}
       failed={failed}
       onToggle={(value) => onToggle('nationalities', value)}
     />
     <FilterGroup
       title="Top 20 hobbies"
-      hint="Match all selected hobbies · up to 10"
+      hint={`Match all selected hobbies · up to ${MAX_HOBBY_FILTERS}`}
       options={options?.hobbies}
       selected={state.hobbies}
-      max={10}
+      max={MAX_HOBBY_FILTERS}
       loading={loading}
       failed={failed}
       onToggle={(value) => onToggle('hobbies', value)}

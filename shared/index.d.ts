@@ -1,4 +1,7 @@
-// Type-only API contract. Consumers must use `import type`.
+export const NAME_SEARCH_MAX_LENGTH: number;
+export const MAX_NATIONALITY_FILTERS: number;
+export const MAX_HOBBY_FILTERS: number;
+
 export type SortFields = readonly ['first_name', 'last_name', 'age', 'nationality'];
 export type SortField = SortFields[number];
 export type SortDirection = 'asc' | 'desc';

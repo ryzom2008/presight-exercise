@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Button, NativeSelect, Paper, TextInput } from '@mantine/core';
 import { isValidNameSearch, type DirectoryState } from '../state';
-import { NAME_SEARCH_MAX_LENGTH } from '../constants';
+import { NAME_SEARCH_MAX_LENGTH } from '@presight/shared';
 import type { SortField, SortDirection } from '@presight/shared';
 
 const nameSearchError =
-  'Name is invalid. Use letters, single spaces, hyphens, apostrophes, and periods; spaces alone are not valid.';
+  'Name is invalid. Include a letter and use single spaces, hyphens, apostrophes, and periods. Do not place apostrophes or hyphens next to each other.';
 
 export const DirectoryControls = ({
   state,

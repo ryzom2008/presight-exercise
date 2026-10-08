@@ -41,6 +41,11 @@ opens the database; custom avatar URLs are preserved. Photos may repeat across u
 
 Check the application with `yarn test`, `yarn typecheck`, and `yarn build`.
 
+Client and server validation limits live in `shared/index.js`, with TypeScript declarations
+and API types in `shared/index.d.ts`. The shared package needs no compilation step: Vite
+bundles its constants for the client, and Node loads them at runtime on the server.
+The Docker image includes the shared package as a production dependency.
+
 ## Run with Docker Compose
 
 Start Docker Desktop (or Docker Engine with Compose), then run from the repository root:

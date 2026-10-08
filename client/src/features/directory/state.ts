@@ -1,5 +1,9 @@
 import type { SortField, SortFields, SortDirection } from '@presight/shared';
-import { NAME_SEARCH_MAX_LENGTH } from './constants';
+import {
+  NAME_SEARCH_MAX_LENGTH,
+  MAX_NATIONALITY_FILTERS,
+  MAX_HOBBY_FILTERS,
+} from '@presight/shared';
 export const sortFields = [
   'first_name',
   'last_name',
@@ -24,14 +28,12 @@ export const defaults: DirectoryState = {
 export const fold = (value: string) => value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
 
 const nameSearchPattern = new RegExp(`^[\\p{L}\\p{M} .'’ʼ-]{1,${NAME_SEARCH_MAX_LENGTH}}$`, 'u');
-const disallowedInNameSearch = /[^\p{L}\p{M} .'’ʼ-]/gu;
 
 export const isValidNameSearch = (value: string): boolean =>
   value === '' ||
-  (value.trim().length > 0 && !/ {2}/u.test(value) && nameSearchPattern.test(value));
-
-export const sanitizeNameSearch = (value: string): string =>
-  value.replace(disallowedInNameSearch, '').slice(0, NAME_SEARCH_MAX_LENGTH);
+  (nameSearchPattern.test(value) &&
+    /\p{L}/u.test(value.replace(/['’ʼ]/gu, '')) &&
+    !/ {2}|['’ʼ-]{2}/u.test(value));
 
 const readValues = (params: URLSearchParams, key: string, limit: number) =>
   [
@@ -46,10 +48,11 @@ const readValues = (params: URLSearchParams, key: string, limit: number) =>
 export const readState = (search: string): DirectoryState => {
   const params = new URLSearchParams(search);
   const sort = params.get('sort') as SortField;
+  const q = params.get('q') ?? '';
   return {
-    q: sanitizeNameSearch(params.get('q') ?? ''),
-    nationalities: readValues(params, 'nationality', 50),
-    hobbies: readValues(params, 'hobby', 10),
+    q,
+    nationalities: readValues(params, 'nationality', MAX_NATIONALITY_FILTERS),
+    hobbies: readValues(params, 'hobby', MAX_HOBBY_FILTERS),
     sort: sortFields.includes(sort) ? sort : defaults.sort,
     direction: params.get('direction') === 'desc' ? 'desc' : 'asc',
   };

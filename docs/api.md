@@ -38,7 +38,7 @@ defaults.
 | Field           | Type     | Default        | Validation and behavior                                                                                                                |
 | --------------- | -------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `q`             | string   | `""`           | Maximum 200 characters. Matches first name, last name, or full name case-insensitively. SQL wildcard characters are treated literally. |
-| `nationalities` | string[] | `[]`           | Maximum 50 values, each 1–100 characters. A user may match any selected nationality.                                                   |
+| `nationalities` | string[] | `[]`           | Maximum 195 values, each 1–100 characters. A user may match any selected nationality.                                                  |
 | `hobbies`       | string[] | `[]`           | Maximum 10 values, each 1–100 characters. A user must have every selected hobby.                                                       |
 | `sort`          | string   | `"first_name"` | One of `first_name`, `last_name`, `age`, or `nationality`.                                                                             |
 | `direction`     | string   | `"asc"`        | Either `asc` or `desc`. The user ID is the final tie-breaker in the same direction.                                                    |

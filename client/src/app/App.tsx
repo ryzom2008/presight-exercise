@@ -5,7 +5,7 @@ import { useDirectory, useFilterOptions } from '../features/directory/api';
 import { Filters } from '../features/directory/components/Filters';
 import { DirectoryControls } from '../features/directory/components/DirectoryControls';
 import { DirectoryResults } from '../features/directory/components/DirectoryResults';
-import { fold, stateParams } from '../features/directory/state';
+import { fold, isValidNameSearch, stateParams } from '../features/directory/state';
 import { useDirectoryState } from '../features/directory/hooks/useDirectoryState';
 import '../features/directory/styles.css';
 
@@ -14,8 +14,9 @@ export const App = () => {
   const [debouncedSearch] = useDebouncedValue(state.q, 300);
   const requestState = useMemo(() => ({ ...state, q: debouncedSearch }), [state, debouncedSearch]);
 
-  const usersQuery = useDirectory(requestState);
-  const filterQuery = useFilterOptions(requestState);
+  const ready = isValidNameSearch(state.q) && isValidNameSearch(debouncedSearch);
+  const usersQuery = useDirectory(requestState, ready);
+  const filterQuery = useFilterOptions(requestState, ready);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const desktop = useMediaQuery('(min-width: 62em)');
@@ -59,7 +60,7 @@ export const App = () => {
     <Filters
       state={state}
       options={filterQuery.data}
-      loading={filterQuery.isPending}
+      loading={filterQuery.isLoading}
       failed={filterQuery.isError}
       onRetry={() => void filterQuery.refetch()}
       onToggle={toggle}
@@ -99,11 +100,13 @@ export const App = () => {
             <Stack gap="md" className="directory-results mobile-results-gap">
               <Group justify="space-between">
                 <Text role="status" aria-live="polite" fw={600}>
-                  {usersQuery.isPending
-                    ? 'Finding people for you…'
-                    : firstPage
-                      ? `${firstPage.pagination.total.toLocaleString()} people found`
-                      : 'Directory unavailable'}
+                  {!ready
+                    ? 'Enter a name to search'
+                    : usersQuery.isPending
+                      ? 'Finding people for you…'
+                      : firstPage
+                        ? `${firstPage.pagination.total.toLocaleString()} people found`
+                        : 'Directory unavailable'}
                 </Text>
                 {!desktop && (
                   <Button variant="default" onClick={() => setDrawerOpen(true)}>
@@ -121,12 +124,14 @@ export const App = () => {
                 )}
               </Group>
               {selectedCount > 0 && selectedFilters}
-              <DirectoryResults
-                key={stateParams(requestState).toString()}
-                query={usersQuery}
-                active={active}
-                onClear={() => update({ q: '', hobbies: [], nationalities: [] })}
-              />
+              {ready && (
+                <DirectoryResults
+                  key={stateParams(requestState).toString()}
+                  query={usersQuery}
+                  active={active}
+                  onClear={() => update({ q: '', hobbies: [], nationalities: [] })}
+                />
+              )}
             </Stack>
           </div>
         </Stack>
