@@ -10,7 +10,7 @@ import { useDirectoryState } from '../features/directory/hooks/useDirectoryState
 import '../features/directory/styles.css';
 
 export const App = () => {
-  const { state, update } = useDirectoryState();
+  const { state, update, goHome } = useDirectoryState();
   const [debouncedSearch] = useDebouncedValue(state.q, 300);
   const requestState = useMemo(() => ({ ...state, q: debouncedSearch }), [state, debouncedSearch]);
 
@@ -64,6 +64,7 @@ export const App = () => {
       failed={filterQuery.isError}
       onRetry={() => void filterQuery.refetch()}
       onToggle={toggle}
+      onClearGroup={(key) => update({ [key]: [] })}
       onClear={clearFilters}
     />
   );
@@ -80,7 +81,18 @@ export const App = () => {
         <Stack gap={12} className="directory-shell">
           <section className="directory-intro" aria-labelledby="directory-heading">
             <Title order={1} id="directory-heading" className="directory-heading">
-              People directory
+              <a
+                href="/"
+                className="directory-home-link"
+                onClick={(event) => {
+                  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                  event.preventDefault();
+                  setDrawerOpen(false);
+                  goHome();
+                }}
+              >
+                People directory
+              </a>
             </Title>
             <Text className="directory-intro-copy">Find people. Discover shared interests.</Text>
           </section>

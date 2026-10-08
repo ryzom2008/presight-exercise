@@ -53,14 +53,41 @@ const mockSearch = () => {
 
 const mount = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <MantineProvider theme={theme}>
         <App />
       </MantineProvider>
     </QueryClientProvider>,
   );
+  return view;
 };
+
+it('Any clears only its filter group and collapses the options', async () => {
+  mockSearch().mockImplementation(async () => json(response()));
+  mount();
+  await screen.findByRole('article');
+  const anyNationality = screen.getByRole('checkbox', {
+    name: 'Any nationality',
+  }) as HTMLInputElement;
+  expect(anyNationality.checked).toBe(false);
+  expect((screen.getByRole('checkbox', { name: 'Any hobbies' }) as HTMLInputElement).checked).toBe(
+    false,
+  );
+  await screen.findByRole('checkbox', { name: 'French' });
+  await screen.findByRole('checkbox', { name: 'Reading' });
+  await userEvent.click(screen.getByRole('checkbox', { name: 'French' }));
+  await userEvent.click(screen.getByRole('checkbox', { name: 'Reading' }));
+  await userEvent.click(screen.getByRole('checkbox', { name: 'Any hobbies' }));
+  expect(screen.queryByRole('checkbox', { name: 'Reading' })).toBeNull();
+  expect(new URLSearchParams(window.location.search).getAll('hobby')).toEqual([]);
+  expect(new URLSearchParams(window.location.search).getAll('nationality')).toEqual(['french']);
+  await userEvent.click(anyNationality);
+  expect(screen.queryByRole('checkbox', { name: 'French' })).toBeNull();
+  expect(new URLSearchParams(window.location.search).getAll('nationality')).toEqual([]);
+  await userEvent.click(anyNationality);
+  await screen.findByRole('checkbox', { name: 'French' });
+});
 
 describe('name validation', () => {
   it.each(["Kate''", 'Kate--', "Kate'-", 'Kate’ʼ', "'''", '---', 'ʼ', 'ʼʼ', '.', ' - '])(
@@ -93,6 +120,25 @@ describe('URL state', () => {
       direction: 'asc',
     });
   });
+});
+
+it('returns to the home page from the directory title', async () => {
+  window.history.replaceState(
+    null,
+    '',
+    '/?q=Alex&hobby=reading&nationality=French&sort=age&direction=desc#results',
+  );
+  mockSearch().mockResolvedValue(json(response()));
+  mount();
+  await screen.findByRole('article', { name: 'Alex Smith' });
+
+  fireEvent.click(screen.getByRole('link', { name: 'People directory' }));
+
+  expect(window.location.pathname).toBe('/');
+  expect(window.location.search).toBe('');
+  expect(window.location.hash).toBe('');
+  expect((screen.getByLabelText('Search people') as HTMLInputElement).value).toBe('');
+  expect(screen.queryByRole('button', { name: 'Remove hobby reading' })).toBeNull();
 });
 
 it('shows invalid URL names and blocks requests when navigating from a valid search', async () => {
@@ -445,6 +491,40 @@ it('resets scroll and cancels a pending next page when filters change', async ()
     finish(json(pageResponse(20)));
   });
   expect(screen.getAllByRole('article')).toHaveLength(1);
+});
+
+it('keeps nationality options selectable while updated counts load', async () => {
+  const options: FilterOptionsResponse = {
+    hobbies: [],
+    nationalities: [
+      { value: 'French', count: 2 },
+      { value: 'British', count: 1 },
+    ],
+  };
+  const pending: Array<(response: Response) => void> = [];
+  vi.spyOn(globalThis, 'fetch').mockImplementation((url, init) => {
+    if (url === '/api/users/filter-options') {
+      if (requestBody(init).nationalities?.length) {
+        return new Promise((resolve) => pending.push(resolve));
+      }
+      return Promise.resolve(json(options));
+    }
+    return Promise.resolve(json(response()));
+  });
+  mount();
+  await screen.findByRole('checkbox', { name: 'French' });
+  await userEvent.click(screen.getByRole('checkbox', { name: 'French' }));
+  expect(screen.queryByLabelText('Loading top 20 nationalities')).toBeNull();
+  expect((screen.getByRole('checkbox', { name: 'French' }) as HTMLInputElement).checked).toBe(true);
+  await userEvent.click(screen.getByRole('checkbox', { name: 'British' }));
+  expect(new URLSearchParams(window.location.search).getAll('nationality')).toEqual([
+    'french',
+    'british',
+  ]);
+  await act(async () => {
+    for (const resolve of pending) resolve(json(options));
+  });
+  expect(screen.getAllByRole('checkbox')).toHaveLength(4);
 });
 
 it('loads options independently and does not refetch them for sorting or pagination', async () => {

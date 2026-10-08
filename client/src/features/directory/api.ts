@@ -4,7 +4,7 @@ import type {
   DirectorySearchRequest,
   FilterOptionsResponse,
 } from '@presight/shared';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { stateParams, type DirectoryState } from './state';
 
 export const useDirectory = (state: DirectoryState, enabled = true) => {
@@ -39,6 +39,7 @@ export const useFilterOptions = (state: DirectoryState, enabled = true) => {
   return useQuery({
     enabled,
     queryKey: ['filterOptions', filters],
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }): Promise<FilterOptionsResponse> => {
       const response = await fetch('/api/users/filter-options', {
         method: 'POST',

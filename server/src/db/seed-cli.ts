@@ -1,11 +1,11 @@
 import { parseArgs } from 'node:util';
 import { openDatabase, resolveDatabasePath } from './connection.js';
-import { seedDatabase } from './seed.js';
+import { DEFAULT_SEED_COUNT, seedDatabase } from './seed.js';
 
 try {
   const { values } = parseArgs({
     options: {
-      count: { type: 'string', default: '2000' },
+      count: { type: 'string', default: String(DEFAULT_SEED_COUNT) },
       seed: { type: 'string', default: '42' },
       reset: { type: 'boolean', default: false },
     },
@@ -15,11 +15,15 @@ try {
   const db = openDatabase(path);
   try {
     const result = seedDatabase(db, {
-      count: Number(values.count), seed: Number(values.seed), reset: values.reset,
+      count: Number(values.count),
+      seed: Number(values.seed),
+      reset: values.reset,
     });
-    console.log(result.inserted
-      ? `Seeded ${result.count} users (seed ${values.seed}) into ${path}`
-      : `Kept ${result.count} existing users in ${path}. Use --reset to replace them.`);
+    console.log(
+      result.inserted
+        ? `Seeded ${result.count} users (seed ${values.seed}) into ${path}`
+        : `Kept ${result.count} existing users in ${path}. Use --reset to replace them.`,
+    );
   } finally {
     db.close();
   }

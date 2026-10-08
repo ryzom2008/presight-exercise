@@ -1,6 +1,8 @@
+export function isValidNameSearch(value: string): boolean;
 export const NAME_SEARCH_MAX_LENGTH: number;
 export const MAX_NATIONALITY_FILTERS: number;
 export const MAX_HOBBY_FILTERS: number;
+export const FILTER_VALUE_MAX_LENGTH: number;
 
 export type SortFields = readonly ['first_name', 'last_name', 'age', 'nationality'];
 export type SortField = SortFields[number];

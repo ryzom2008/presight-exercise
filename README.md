@@ -28,16 +28,15 @@ Open http://localhost:5173.
 
 ```sh
 # Replace the directory (deletes existing directory data).
-yarn db:seed --reset --count 2000 --seed 42
+yarn db:seed --reset --count 10000 --seed 42
 ```
 
-The default database is `server/data/directory.sqlite`. Seeding creates 2,000 users and
+The default database is `server/data/directory.sqlite`. Seeding creates 10,000 users and
 preserves existing data unless `--reset` is supplied. Set `DATABASE_PATH` to use another
 database; relative paths resolve from `server/`. Use the same value for seeding and running.
 Avatar fields contain stable [Pravatar](https://www.pravatar.cc/) photo URLs based on user IDs
 (`https://i.pravatar.cc/400?u=presight-1`), so displaying avatars requires internet access
-from the browser. Existing seeded DiceBear avatars migrate automatically when the server
-opens the database; custom avatar URLs are preserved. Photos may repeat across users.
+from the browser. Photos may repeat across users.
 
 Check the application with `yarn test`, `yarn typecheck`, and `yarn build`.
 
@@ -69,7 +68,7 @@ deletes the volume and its data. Docker uses a separate database from local deve
 
 ```sh
 # Replace the Docker directory (deletes existing directory data).
-docker compose exec app node server/dist/db/seed-cli.js --reset --count 2000 --seed 42
+docker compose exec app node server/dist/db/seed-cli.js --reset --count 10000 --seed 42
 ```
 
 To verify persistence, edit a test record, recreate the container, and query it again:

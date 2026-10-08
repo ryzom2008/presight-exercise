@@ -21,7 +21,8 @@ export const createUserController = (service: UserService) => {
         .json({ error: { code: 'UNSUPPORTED_MEDIA_TYPE', message: 'Use application/json' } });
       return;
     }
-    res.json(service.getFilterOptions(parseUserFilters(req.body ?? {})));
+    const query = parseUserFilters(req.body ?? {});
+    res.json(service.getFilterOptions(query));
   };
   return { list, filterOptions };
 };

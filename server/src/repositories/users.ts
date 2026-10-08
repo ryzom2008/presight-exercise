@@ -102,9 +102,11 @@ export const createUserRepository = (db: Database.Database): UserRepository => (
   filterOptions: (filters) =>
     db.transaction(() => {
       const filter = buildUserFilter(filters);
+      // Nationalities match ANY selection, so keep alternatives available to add.
+      const nationalityFilter = buildUserFilter({ ...filters, nationalities: [] });
       return {
         hobbies: getTopHobbies(db, filter),
-        nationalities: getTopNationalities(db, filter),
+        nationalities: getTopNationalities(db, nationalityFilter),
       };
     })(),
 });

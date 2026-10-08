@@ -1,8 +1,8 @@
 import type { SortField, SortFields, SortDirection } from '@presight/shared';
 import {
-  NAME_SEARCH_MAX_LENGTH,
   MAX_NATIONALITY_FILTERS,
   MAX_HOBBY_FILTERS,
+  FILTER_VALUE_MAX_LENGTH,
 } from '@presight/shared';
 export const sortFields = [
   'first_name',
@@ -27,13 +27,7 @@ export const defaults: DirectoryState = {
 };
 export const fold = (value: string) => value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
 
-const nameSearchPattern = new RegExp(`^[\\p{L}\\p{M} .'’ʼ-]{1,${NAME_SEARCH_MAX_LENGTH}}$`, 'u');
-
-export const isValidNameSearch = (value: string): boolean =>
-  value === '' ||
-  (nameSearchPattern.test(value) &&
-    /\p{L}/u.test(value.replace(/['’ʼ]/gu, '')) &&
-    !/ {2}|['’ʼ-]{2}/u.test(value));
+export { isValidNameSearch } from '@presight/shared';
 
 const readValues = (params: URLSearchParams, key: string, limit: number) =>
   [
@@ -41,7 +35,7 @@ const readValues = (params: URLSearchParams, key: string, limit: number) =>
       params
         .getAll(key)
         .map((value) => fold(value.trim()))
-        .filter((value) => value.length > 0 && value.length <= 100),
+        .filter((value) => value.length > 0 && value.length <= FILTER_VALUE_MAX_LENGTH),
     ),
   ].slice(0, limit);
 

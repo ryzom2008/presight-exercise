@@ -1,12 +1,15 @@
-import { Avatar, Badge, Group, Text } from '@mantine/core';
+import { Avatar, Badge, Group, Text, Tooltip } from '@mantine/core';
 import type { DirectoryUser } from '@presight/shared';
 
 export const UserCard = ({ user }: { user: DirectoryUser }) => (
   <article className="user-card" aria-label={`${user.first_name} ${user.last_name}`}>
-    <Avatar src={user.avatar} alt="" radius={0} className="user-card-portrait">
-      {user.first_name[0]}
-      {user.last_name[0]}
-    </Avatar>
+    <Avatar
+      src={user.avatar?.trim() || null}
+      alt=""
+      radius={0}
+      className="user-card-portrait"
+      imageProps={{ referrerPolicy: 'no-referrer' }}
+    />
     <div className="user-card-panel">
       <Text component="h3" className="user-card-name break-text">
         {user.first_name} {user.last_name}
@@ -21,13 +24,21 @@ export const UserCard = ({ user }: { user: DirectoryUser }) => (
           </Badge>
         ))}
         {user.hobbies.length > 2 && (
-          <Badge
-            color="brand.2"
-            variant="outline"
-            aria-label={`${user.hobbies.length - 2} more hobbies`}
+          <Tooltip
+            label={user.hobbies.slice(2).join(', ')}
+            multiline
+            maw={280}
+            events={{ hover: true, focus: true, touch: true }}
           >
-            +{user.hobbies.length - 2}
-          </Badge>
+            <Badge
+              color="brand.2"
+              variant="outline"
+              tabIndex={0}
+              aria-label={`${user.hobbies.length - 2} more hobbies`}
+            >
+              +{user.hobbies.length - 2}
+            </Badge>
+          </Tooltip>
         )}
         {!user.hobbies.length && (
           <Text size="sm" className="user-card-meta">

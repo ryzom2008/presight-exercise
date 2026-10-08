@@ -74,17 +74,13 @@ test('HTTP defaults return user shape, metadata and filter options; health and J
   }
 });
 
-test('text searches first name, last name and full name with literal SQL wildcard characters', async () => {
+test('text searches first name, last name and full name', async () => {
   const { db, api } = fixture();
   try {
     for (const [q, expected] of [
       [' ALEX ', [1, 2]],
       ['smith', [1, 2, 4]],
       ['alex smith', [1, 2]],
-      ['%', [5]],
-      ['_', [5]],
-      ['\\', [5]],
-      ["' OR 1=1 --", []],
     ] as [string, number[]][]) {
       const { body } = await api.post('/api/users/search').send({ q }).expect(200);
       assert.deepEqual(
@@ -220,7 +216,31 @@ test('offset supports direct jumps, partial final pages, and offsets beyond the 
   }
 });
 
-test('empty results return empty filter options and terminal pagination', async () => {
+test('nationality options ignore their own selection while hobbies and results use it', async () => {
+  const { db, api } = fixture();
+  try {
+    const filters = { q: 'alex', hobbies: ['Reading'], nationalities: ['French'] };
+    const options = (await api.post('/api/users/filter-options').send(filters).expect(200)).body;
+    assert.deepEqual(options.nationalities, [
+      { value: 'British', count: 1 },
+      { value: 'French', count: 1 },
+    ]);
+    assert.deepEqual(options.hobbies, [{ value: 'Reading', count: 1 }]);
+    const selected = (await api.post('/api/users/search').send(filters).expect(200)).body;
+    assert.equal(selected.pagination.total, 1);
+    const expandedFilters = { ...filters, nationalities: ['French', 'British'] };
+    const expanded = (await api.post('/api/users/search').send(expandedFilters).expect(200)).body;
+    assert.equal(expanded.pagination.total, 2);
+    const expandedOptions = (
+      await api.post('/api/users/filter-options').send(expandedFilters).expect(200)
+    ).body;
+    assert.deepEqual(expandedOptions.nationalities, options.nationalities);
+  } finally {
+    db.close();
+  }
+});
+
+test('empty results retain alternative nationalities and return terminal pagination', async () => {
   const { db, api } = fixture();
   try {
     for (const query of [
@@ -231,7 +251,16 @@ test('empty results return empty filter options and terminal pagination', async 
     ]) {
       const { body } = await api.post('/api/users/search').send(query).expect(200);
       const options = (await api.post('/api/users/filter-options').send(query).expect(200)).body;
-      assert.deepEqual(options, { hobbies: [], nationalities: [] });
+      assert.deepEqual(options.hobbies, []);
+      if (query.nationalities) {
+        assert.deepEqual(options.nationalities, [
+          { value: 'French', count: 3 },
+          { value: 'British', count: query.hobbies ? 1 : 2 },
+          ...(query.hobbies ? [] : [{ value: 'German', count: 1 }]),
+        ]);
+      } else {
+        assert.deepEqual(options.nationalities, []);
+      }
       assert.deepEqual(body, {
         users: [],
         pagination: { total: 0, limit: 20, offset: 0, hasMore: false, nextOffset: null },
@@ -281,7 +310,7 @@ test('top 20 filter options use count descending, then alphabetical ties, and ch
         .expect(200)
     ).body;
     assert.deepEqual(filtered.hobbies, [{ value: 'Value 24', count: 1 }]);
-    assert.deepEqual(filtered.nationalities, [{ value: 'Value 24', count: 1 }]);
+    assert.deepEqual(filtered.nationalities, expected);
   } finally {
     db.close();
   }
@@ -354,7 +383,7 @@ test('malformed JSON and oversized bodies return structured errors', async () =>
   }
 });
 
-test('filter options accepts only filters, validates them, and matches text literally', async () => {
+test('filter options accepts only filters and validates them', async () => {
   const { db, api } = fixture();
   try {
     for (const body of [
@@ -368,10 +397,53 @@ test('filter options accepts only filters, validates them, and matches text lite
       const response = await api.post('/api/users/filter-options').send(body).expect(400);
       assert.equal(response.body.error.code, 'INVALID_QUERY');
     }
-    const result = await api.post('/api/users/filter-options').send({ q: '%' }).expect(200);
-    assert.deepEqual(result.body, { hobbies: [], nationalities: [{ value: 'British', count: 1 }] });
+    const result = await api.post('/api/users/filter-options').send({ q: 'Zoe' }).expect(200);
+    assert.deepEqual(result.body, {
+      hobbies: [{ value: 'Swimming', count: 1 }],
+      nationalities: [{ value: 'German', count: 1 }],
+    });
     await api.post('/api/users/filter-options').type('text').send('hello').expect(415);
     await api.post('/api/users/filter-options').type('json').send('{').expect(400);
+  } finally {
+    db.close();
+  }
+});
+
+test('both endpoints enforce the client name validation rules before trimming', async () => {
+  const { db, api } = fixture();
+  try {
+    for (const endpoint of ['/api/users/search', '/api/users/filter-options']) {
+      for (const q of [
+        'kate123',
+        ' ',
+        '  Ana',
+        'Ana  Smith',
+        "Kate''",
+        'Kate--',
+        'ʼ',
+        '---',
+        '%',
+        '_',
+        '\\',
+        "' OR 1=1 --",
+      ]) {
+        const { body } = await api.post(endpoint).send({ q }).expect(400);
+        assert.equal(body.error.code, 'INVALID_QUERY');
+      }
+      for (const q of [
+        '',
+        ' Ana ',
+        "O'Neil",
+        'Jean-Luc',
+        'José',
+        'OʼNeil',
+        '李',
+        'a'.repeat(NAME_SEARCH_MAX_LENGTH),
+      ]) {
+        await api.post(endpoint).send({ q }).expect(200);
+      }
+      await api.post(endpoint).send({}).expect(200);
+    }
   } finally {
     db.close();
   }

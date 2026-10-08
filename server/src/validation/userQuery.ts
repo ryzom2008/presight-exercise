@@ -1,7 +1,9 @@
 import {
   NAME_SEARCH_MAX_LENGTH,
+  isValidNameSearch,
   MAX_NATIONALITY_FILTERS,
   MAX_HOBBY_FILTERS,
+  FILTER_VALUE_MAX_LENGTH,
 } from '@presight/shared';
 import type { SortFields } from '@presight/shared';
 import { z } from 'zod';
@@ -19,13 +21,18 @@ const fold = (value: string) => value.replace(/[A-Z]/g, (character) => character
 
 const filterValues = (max: number) =>
   z
-    .array(z.string().max(100).trim().min(1).transform(fold))
+    .array(z.string().max(FILTER_VALUE_MAX_LENGTH).trim().min(1).transform(fold))
     .max(max)
     .default([])
     .transform((values) => [...new Set(values)].sort());
 
 const userFilterSchema = z.strictObject({
-  q: z.string().max(NAME_SEARCH_MAX_LENGTH).trim().transform(fold).default(''),
+  q: z
+    .string()
+    .max(NAME_SEARCH_MAX_LENGTH)
+    .refine(isValidNameSearch, { message: 'Invalid name search' })
+    .transform((value) => fold(value.trim()))
+    .default(''),
   nationalities: filterValues(MAX_NATIONALITY_FILTERS),
   hobbies: filterValues(MAX_HOBBY_FILTERS),
 });
