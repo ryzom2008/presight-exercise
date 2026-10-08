@@ -1,0 +1,43 @@
+name: presight-demo
+
+services:
+  app:
+    image: ${APP_IMAGE:?Set APP_IMAGE to the tested registry image digest}
+    restart: unless-stopped
+    init: true
+    volumes:
+      - directory-data:/app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+volumes:
+  directory-data:
+    name: presight-demo_directory-data
+  caddy-data:
+    name: presight-demo_caddy-data
+  caddy-config:
+    name: presight-demo_caddy-config
