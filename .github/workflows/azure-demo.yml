@@ -38,6 +38,7 @@ jobs:
         run: |
           for script in docker/azure/*.sh; do bash -n "$script"; done
           node --check docker/smoke.mjs
+          python3 docker/azure/test-check-deployment.py
 
   build:
     needs: validate
@@ -155,16 +156,6 @@ jobs:
             --output json > "$RUNNER_TEMP/deploy-result.json"
           cat "$RUNNER_TEMP/deploy-result.json"
           # The invoke API may succeed even when the guest script fails.
-          python3 - "$RUNNER_TEMP/deploy-result.json" <<'PY'
-          import json, sys
-          result = json.load(open(sys.argv[1]))
-          succeeded = any(
-              item.get('code') == 'ComponentStatus/StdOut/succeeded'
-              and 'PRESIGHT_DEPLOY_SUCCEEDED' in item.get('message', '').splitlines()
-              for item in result.get('value', [])
-          )
-          if not succeeded:
-              raise SystemExit('VM deployment failed; inspect Run Command output above.')
-          PY
+          python3 docker/azure/check-deployment.py "$RUNNER_TEMP/deploy-result.json"
       - name: Verify public HTTPS, frontend, and database search
         run: node docker/smoke.mjs https://presight-demo-2008.southeastasia.cloudapp.azure.com

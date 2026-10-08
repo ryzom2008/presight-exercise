@@ -58,4 +58,4 @@ if [ -L /opt/presight/current ]; then
   readlink /opt/presight/current > /opt/presight/previous-release
 fi
 ln -sfn "$PWD" /opt/presight/current
-echo 'PRESIGHT_DEPLOY_SUCCEEDED'
+printf '\nPRESIGHT_DEPLOY_SUCCEEDED\n'
