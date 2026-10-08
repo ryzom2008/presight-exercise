@@ -34,6 +34,7 @@ test('service accepts a mocked repository and preserves the active query and fil
       return { users, total: 23 };
     },
     filterOptions: () => filterOptions,
+    findById: () => null,
   });
   assert.deepEqual(service.getFilterOptions(query), filterOptions);
   assert.deepEqual(service.findUsers(query), {
@@ -46,6 +47,7 @@ test('service stops pagination for an empty page beyond the last result', () => 
   const service = createUserService({
     find: () => ({ users: [], total: 3 }),
     filterOptions: () => ({ hobbies: [], nationalities: [] }),
+    findById: () => null,
   });
   const result = service.findUsers(parseUserQuery({ offset: 20 }));
   assert.deepEqual(result.pagination, {

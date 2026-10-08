@@ -448,3 +448,57 @@ test('both endpoints enforce the client name validation rules before trimming', 
     db.close();
   }
 });
+
+test('get user returns a full user, empty hobbies, and a structured 404', async () => {
+  const { db, api } = fixture();
+  try {
+    await api.get('/api/users/1').expect(200, {
+      id: 1,
+      avatar: 'avatar:1',
+      first_name: 'Alex',
+      last_name: 'Smith',
+      age: 30,
+      nationality: 'British',
+      hobbies: ['Reading', 'Swimming'],
+    });
+    const { body } = await api.get('/api/users/5').expect(200);
+    assert.deepEqual(body.hobbies, []);
+    await api.get('/api/users/99').expect(404, {
+      error: { code: 'USER_NOT_FOUND', message: 'User not found' },
+    });
+    await api.get(`/api/users/${Number.MAX_SAFE_INTEGER}`).expect(404);
+  } finally {
+    db.close();
+  }
+});
+
+test('get user rejects invalid IDs and does not match other methods or nested paths', async () => {
+  const { db, api } = fixture();
+  try {
+    // A lookup would fail with 500 after closing the database: invalid IDs must
+    // be rejected before the repository is called.
+    db.close();
+    for (const id of [
+      '0',
+      '-1',
+      '1.5',
+      '1abc',
+      'abc',
+      '01',
+      '1e2',
+      '0x10',
+      ' 1',
+      '9007199254740992',
+    ]) {
+      await api.get(`/api/users/${encodeURIComponent(id)}`).expect(400, {
+        error: { code: 'INVALID_QUERY', message: 'id: Invalid user id' },
+      });
+    }
+    await api.post('/api/users/1').expect(404);
+    await api.delete('/api/users/1').expect(404);
+    await api.put('/api/users/1').expect(404);
+    await api.get('/api/users/1/anything').expect(404);
+  } finally {
+    if (db.open) db.close();
+  }
+});

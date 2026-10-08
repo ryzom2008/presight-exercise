@@ -41,6 +41,7 @@ export interface UserSearchResult {
 export interface UserRepository {
   find: (query: UserQuery) => UserSearchResult;
   filterOptions: (filters: UserFilters) => FilterOptionsResponse;
+  findById: (id: number) => DirectoryUser | null;
 }
 
 export const createUserRepository = (sqlite: Database.Database): UserRepository => {
@@ -86,6 +87,12 @@ export const createUserRepository = (sqlite: Database.Database): UserRepository 
             .limit(20)
             .all(),
         };
+      }),
+    findById: (id) =>
+      db.transaction((tx) => {
+        const user = tx.select().from(users).where(eq(users.id, id)).get();
+        if (!user) return null;
+        return withHobbies(tx, [user])[0]!;
       }),
   };
 };

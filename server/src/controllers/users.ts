@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express';
 import type { UserService } from '../services/users.js';
-import { parseUserQuery, parseUserFilters } from '../validation/userQuery.js';
+import { InvalidQuery, parseUserQuery, parseUserFilters } from '../validation/userQuery.js';
 
 export const createUserController = (service: UserService) => {
   const list: RequestHandler = (req, res) => {
@@ -24,7 +24,18 @@ export const createUserController = (service: UserService) => {
     const query = parseUserFilters(req.body ?? {});
     res.json(service.getFilterOptions(query));
   };
-  return { list, filterOptions };
+
+  const getUserById: RequestHandler = (req, res) => {
+    const rawId = req.params.id;
+    if (typeof rawId !== 'string' || !/^[1-9]\d*$/.test(rawId)) {
+      throw new InvalidQuery('id: Invalid user id');
+    }
+    const id = Number(rawId);
+    if (!Number.isSafeInteger(id)) throw new InvalidQuery('id: Invalid user id');
+    res.json(service.findUserById(id));
+  };
+
+  return { list, filterOptions, getUserById };
 };
 
 export type UserController = ReturnType<typeof createUserController>;

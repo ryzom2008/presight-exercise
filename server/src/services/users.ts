@@ -1,6 +1,13 @@
-import type { DirectoryResponse } from '@presight/shared';
+import type { DirectoryResponse, DirectoryUser } from '@presight/shared';
 import type { UserRepository } from '../repositories/users.js';
 import type { UserQuery, UserFilters } from '../validation/userQuery.js';
+
+export class UserNotFound extends Error {
+  constructor() {
+    super('User not found');
+    this.name = 'UserNotFound';
+  }
+}
 
 export const createUserService = (repository: UserRepository) => ({
   getFilterOptions: (filters: UserFilters) => repository.filterOptions(filters),
@@ -19,6 +26,11 @@ export const createUserService = (repository: UserRepository) => ({
         nextOffset: hasMore ? nextOffset : null,
       },
     };
+  },
+  findUserById: (id: number): DirectoryUser => {
+    const user = repository.findById(id);
+    if (!user) throw new UserNotFound();
+    return user;
   },
 });
 

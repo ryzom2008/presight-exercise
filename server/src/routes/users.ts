@@ -5,5 +5,6 @@ export const createUserRouter = (controller: UserController) => {
   const router = Router();
   router.post('/search', controller.list);
   router.post('/filter-options', controller.filterOptions);
+  router.get('/:id', controller.getUserById);
   return router;
 };

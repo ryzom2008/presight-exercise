@@ -2,7 +2,7 @@ import express from 'express';
 import type Database from 'better-sqlite3';
 import { InvalidQuery } from './validation/userQuery.js';
 import { createUserRepository } from './repositories/users.js';
-import { createUserService } from './services/users.js';
+import { createUserService, UserNotFound } from './services/users.js';
 import { createUserController } from './controllers/users.js';
 import { createUserRouter } from './routes/users.js';
 import { createRequestLogger, type WriteRequestLog } from './middleware/requestLogger.js';
@@ -35,6 +35,10 @@ export const createApp = (
   }
 
   const errorHandler: express.ErrorRequestHandler = (error: unknown, req, res, _next) => {
+    if (error instanceof UserNotFound) {
+      res.status(404).json({ error: { code: 'USER_NOT_FOUND', message: error.message } });
+      return;
+    }
     if (error instanceof InvalidQuery) {
       res.status(400).json({ error: { code: 'INVALID_QUERY', message: error.message } });
       return;

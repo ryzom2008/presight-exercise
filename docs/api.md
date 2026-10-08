@@ -76,6 +76,15 @@ Example response:
 `nextOffset` is `null` when no more users are available. Pass a non-null `nextOffset` as
 the next request's `offset` to continue pagination.
 
+## Get a user
+
+### `GET /api/users/:id`
+
+Returns a single user with the same fields as a search result, including a hobbies
+array (empty when the user has none). The ID must contain only decimal digits,
+start with 1–9, and be a positive JavaScript safe integer. Invalid IDs return
+`400 INVALID_QUERY`; nonexistent users return `404 USER_NOT_FOUND`.
+
 ## Get filter options
 
 ### `POST /api/users/filter-options`
